@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Check, Play, FileText, HelpCircle, ChevronRight, Moon, Star } from 'lucide-react';
+import { Check, Play, HelpCircle, Moon, Star, Lock, ChevronRight } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import AppLayout from '@/components/layout/AppLayout';
@@ -10,6 +10,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { useConfetti } from '@/hooks/useConfetti';
 
 interface RamadanDay {
   id: number;
@@ -27,20 +28,23 @@ interface Quiz {
   correct_option: number | null;
 }
 
-interface QuizResponse {
+interface UserProgress {
   id: string;
-  quiz_id: string;
-  user_id: string;
-  selected_option: number;
+  day_id: number;
+  video_watched: boolean;
+  quiz_completed: boolean;
+  pdf_read: boolean;
 }
 
 const Ramadan = () => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const { fireSuccess } = useConfetti();
   const [expandedDay, setExpandedDay] = useState<number | null>(null);
-  const [activeTab, setActiveTab] = useState<'video' | 'quiz' | 'pdf'>('video');
+  const [activeTab, setActiveTab] = useState<'video' | 'quiz'>('video');
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
-  const [pollResults, setPollResults] = useState<Record<string, number[]>>({});
+  const [showResult, setShowResult] = useState(false);
+  const [isCorrect, setIsCorrect] = useState(false);
 
   // Fetch all days
   const { data: days = [] } = useQuery({
@@ -80,94 +84,46 @@ const Ramadan = () => {
         .select('*')
         .eq('user_id', user.id);
       if (error) throw error;
-      return data || [];
+      return data as UserProgress[];
     },
     enabled: !!user?.id,
   });
 
-  // Fetch user's quiz responses
-  const { data: userResponses = [] } = useQuery({
-    queryKey: ['quiz-responses', user?.id],
-    queryFn: async () => {
-      if (!user?.id) return [];
-      const { data, error } = await supabase
-        .from('quiz_responses')
-        .select('*')
-        .eq('user_id', user.id);
-      if (error) throw error;
-      return data as QuizResponse[];
-    },
-    enabled: !!user?.id,
-  });
+  // Calculate overall progress
+  const completedDays = userProgress.filter(p => p.quiz_completed).length;
+  const progressPercentage = Math.round((completedDays / 30) * 100);
 
-  // Real-time polling subscription
-  useEffect(() => {
-    const channel = supabase
-      .channel('quiz-responses-realtime')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'quiz_responses' },
-        () => {
-          // Refresh poll results on any change
-          fetchPollResults();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, []);
-
-  // Fetch poll results for all quizzes
-  const fetchPollResults = async () => {
-    const { data, error } = await supabase
-      .from('quiz_responses')
-      .select('quiz_id, selected_option');
-    
-    if (error) return;
-    
-    const results: Record<string, number[]> = {};
-    data.forEach(response => {
-      if (!results[response.quiz_id]) {
-        results[response.quiz_id] = [0, 0, 0, 0];
-      }
-      results[response.quiz_id][response.selected_option]++;
-    });
-    setPollResults(results);
+  const getDayProgress = (dayId: number) => {
+    return userProgress.find(p => p.day_id === dayId);
   };
 
-  useEffect(() => {
-    fetchPollResults();
-  }, []);
+  const getQuizForDay = (dayId: number) => {
+    return quizzes.find(q => q.day_id === dayId);
+  };
 
-  // Submit quiz response
-  const submitQuizMutation = useMutation({
-    mutationFn: async ({ quizId, selectedOption }: { quizId: string; selectedOption: number }) => {
-      if (!user?.id) throw new Error('Non connecté');
-      
-      const { error } = await supabase
-        .from('quiz_responses')
-        .insert({
-          user_id: user.id,
-          quiz_id: quizId,
-          selected_option: selectedOption,
-        });
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['quiz-responses'] });
-      toast.success('Réponse enregistrée !');
-      setSelectedAnswer(null);
-    },
-    onError: () => {
-      toast.error('Erreur lors de l\'envoi');
-    },
-  });
+  // Check if a day is unlocked
+  const isDayUnlocked = (dayNumber: number) => {
+    // Day 1 is always unlocked
+    if (dayNumber === 1) return true;
+    
+    // Find the previous day and check if its quiz is completed
+    const previousDay = days.find(d => d.day_number === dayNumber - 1);
+    if (!previousDay) return false;
+    
+    const previousProgress = getDayProgress(previousDay.id);
+    return previousProgress?.quiz_completed === true;
+  };
 
-  // Mark progress
+  // Check if a day has content (video and quiz)
+  const dayHasContent = (day: RamadanDay) => {
+    const hasVideo = !!day.video_url;
+    const hasQuiz = !!getQuizForDay(day.id);
+    return hasVideo && hasQuiz;
+  };
+
+  // Mark progress mutation
   const markProgressMutation = useMutation({
-    mutationFn: async ({ dayId, field }: { dayId: number; field: 'video_watched' | 'pdf_read' | 'quiz_completed' }) => {
+    mutationFn: async ({ dayId, field }: { dayId: number; field: 'video_watched' | 'quiz_completed' }) => {
       if (!user?.id) throw new Error('Non connecté');
       
       const existingProgress = userProgress.find(p => p.day_id === dayId);
@@ -194,32 +150,48 @@ const Ramadan = () => {
     },
   });
 
-  // Calculate overall progress
-  const completedDays = userProgress.filter(p => p.video_watched && p.quiz_completed).length;
-  const progressPercentage = Math.round((completedDays / 30) * 100);
-
-  // Extract YouTube video ID
-  const getVideoId = (url: string | null) => {
-    if (!url) return null;
-    const match = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\s]+)/);
-    return match ? match[1] : null;
+  const handleDayClick = (day: RamadanDay) => {
+    const isUnlocked = isDayUnlocked(day.day_number);
+    const hasContent = dayHasContent(day);
+    
+    if (!isUnlocked) {
+      toast.error('Complétez d\'abord le quiz du jour précédent');
+      return;
+    }
+    
+    if (!hasContent) {
+      toast.info('Contenu pas encore disponible pour ce jour');
+      return;
+    }
+    
+    setExpandedDay(expandedDay === day.id ? null : day.id);
+    setActiveTab('video');
+    setSelectedAnswer(null);
+    setShowResult(false);
+    setIsCorrect(false);
   };
 
-  const getDayProgress = (dayId: number) => {
-    return userProgress.find(p => p.day_id === dayId);
-  };
-
-  const getQuizForDay = (dayId: number) => {
-    return quizzes.find(q => q.day_id === dayId);
-  };
-
-  const hasUserAnsweredQuiz = (quizId: string) => {
-    return userResponses.some(r => r.quiz_id === quizId);
-  };
-
-  const getUserAnswer = (quizId: string) => {
-    const response = userResponses.find(r => r.quiz_id === quizId);
-    return response?.selected_option;
+  const handleSubmitQuiz = (quiz: Quiz, dayId: number) => {
+    if (selectedAnswer === null) return;
+    
+    const correct = selectedAnswer === quiz.correct_option;
+    setIsCorrect(correct);
+    setShowResult(true);
+    
+    if (correct) {
+      // Fire confetti for correct answer
+      fireSuccess();
+      // Mark quiz as completed
+      markProgressMutation.mutate({ dayId, field: 'quiz_completed' });
+      toast.success('Bravo ! Bonne réponse ! 🎉');
+    } else {
+      toast.error('Réponse incorrecte, réessayez !');
+      // Reset for retry
+      setTimeout(() => {
+        setShowResult(false);
+        setSelectedAnswer(null);
+      }, 2000);
+    }
   };
 
   return (
@@ -249,17 +221,23 @@ const Ramadan = () => {
         <div className="grid grid-cols-5 sm:grid-cols-6 md:grid-cols-10 gap-2">
           {days.map((day) => {
             const progress = getDayProgress(day.id);
-            const isCompleted = progress?.video_watched && progress?.quiz_completed;
+            const isCompleted = progress?.quiz_completed;
             const isExpanded = expandedDay === day.id;
+            const isUnlocked = isDayUnlocked(day.day_number);
+            const hasContent = dayHasContent(day);
 
             return (
               <button
                 key={day.id}
-                onClick={() => setExpandedDay(isExpanded ? null : day.id)}
+                onClick={() => handleDayClick(day)}
                 className={cn(
-                  'aspect-square rounded-xl flex flex-col items-center justify-center text-sm font-bold transition-all duration-200',
+                  'aspect-square rounded-xl flex flex-col items-center justify-center text-sm font-bold transition-all duration-200 relative',
                   isCompleted
                     ? 'bg-gradient-to-br from-green-500 to-green-600 text-white shadow-md'
+                    : !isUnlocked
+                    ? 'bg-muted/50 text-muted-foreground cursor-not-allowed'
+                    : !hasContent
+                    ? 'bg-muted/30 text-muted-foreground/50'
                     : isExpanded
                     ? 'bg-gradient-to-br from-gold to-gold-dark text-primary shadow-elevated'
                     : 'bg-muted hover:bg-muted/80 text-foreground'
@@ -267,12 +245,32 @@ const Ramadan = () => {
               >
                 {isCompleted ? (
                   <Check className="h-4 w-4" />
+                ) : !isUnlocked ? (
+                  <Lock className="h-4 w-4" />
                 ) : (
                   <span>{day.day_number}</span>
                 )}
               </button>
             );
           })}
+        </div>
+
+        {/* Legend */}
+        <div className="flex flex-wrap gap-3 justify-center text-xs text-muted-foreground">
+          <div className="flex items-center gap-1">
+            <div className="w-4 h-4 rounded bg-gradient-to-br from-green-500 to-green-600" />
+            <span>Complété</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <div className="w-4 h-4 rounded bg-muted flex items-center justify-center">
+              <Lock className="h-2 w-2" />
+            </div>
+            <span>Verrouillé</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <div className="w-4 h-4 rounded bg-muted" />
+            <span>Disponible</span>
+          </div>
         </div>
 
         {/* Expanded Day Content */}
@@ -283,12 +281,7 @@ const Ramadan = () => {
               if (!day) return null;
               
               const quiz = getQuizForDay(day.id);
-              const videoId = getVideoId(day.video_url);
               const progress = getDayProgress(day.id);
-              const hasAnswered = quiz ? hasUserAnsweredQuiz(quiz.id) : false;
-              const userAnswer = quiz ? getUserAnswer(quiz.id) : undefined;
-              const results = quiz ? pollResults[quiz.id] || [0, 0, 0, 0] : [0, 0, 0, 0];
-              const totalResponses = results.reduce((a, b) => a + b, 0);
 
               return (
                 <>
@@ -300,7 +293,7 @@ const Ramadan = () => {
                       </div>
                       <div>
                         <h3 className="font-bold">Jour {day.day_number}</h3>
-                        <p className="text-sm opacity-80">{day.theme}</p>
+                        {day.theme && <p className="text-sm opacity-80">{day.theme}</p>}
                       </div>
                     </div>
                   </div>
@@ -333,34 +326,23 @@ const Ramadan = () => {
                       Quiz
                       {progress?.quiz_completed && <Check className="h-3 w-3 text-green-500" />}
                     </button>
-                    {day.pdf_url && (
-                      <button
-                        onClick={() => setActiveTab('pdf')}
-                        className={cn(
-                          'flex-1 py-3 text-sm font-medium flex items-center justify-center gap-2 border-b-2 transition-colors',
-                          activeTab === 'pdf'
-                            ? 'border-gold text-gold'
-                            : 'border-transparent text-muted-foreground hover:text-foreground'
-                        )}
-                      >
-                        <FileText className="h-4 w-4" />
-                        PDF
-                      </button>
-                    )}
                   </div>
 
                   {/* Tab Content */}
                   <div className="p-4">
                     {/* Video Tab */}
-                    {activeTab === 'video' && videoId && (
+                    {activeTab === 'video' && day.video_url && (
                       <div className="space-y-4">
                         <div className="aspect-video rounded-xl overflow-hidden bg-black">
-                          <iframe
-                            src={`https://www.youtube.com/embed/${videoId}`}
-                            title={day.theme || ''}
+                          <video
+                            src={day.video_url}
+                            controls
                             className="w-full h-full"
-                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                            allowFullScreen
+                            onEnded={() => {
+                              if (!progress?.video_watched) {
+                                markProgressMutation.mutate({ dayId: day.id, field: 'video_watched' });
+                              }
+                            }}
                           />
                         </div>
                         {!progress?.video_watched && (
@@ -372,94 +354,91 @@ const Ramadan = () => {
                             Marquer comme vue
                           </Button>
                         )}
+                        {progress?.video_watched && !progress?.quiz_completed && (
+                          <Button
+                            onClick={() => setActiveTab('quiz')}
+                            className="w-full"
+                          >
+                            <ChevronRight className="h-4 w-4 mr-2" />
+                            Passer au quiz
+                          </Button>
+                        )}
                       </div>
                     )}
 
                     {/* Quiz Tab */}
                     {activeTab === 'quiz' && quiz && (
                       <div className="space-y-4">
-                        <h4 className="font-semibold text-foreground">{quiz.question}</h4>
-                        
-                        {hasAnswered ? (
-                          // Show results with real-time poll
-                          <div className="space-y-3">
+                        {progress?.quiz_completed ? (
+                          <div className="text-center py-8 space-y-3">
+                            <div className="w-16 h-16 mx-auto rounded-full bg-green-500/20 flex items-center justify-center">
+                              <Check className="h-8 w-8 text-green-500" />
+                            </div>
+                            <h4 className="font-semibold text-foreground">Quiz complété !</h4>
                             <p className="text-sm text-muted-foreground">
-                              Résultats du sondage ({totalResponses} réponses)
+                              Vous avez déjà validé ce quiz. Le jour suivant est déverrouillé.
                             </p>
-                            {quiz.options.map((option, idx) => {
-                              const count = results[idx] || 0;
-                              const percentage = totalResponses > 0 ? Math.round((count / totalResponses) * 100) : 0;
-                              const isCorrect = idx === quiz.correct_option;
-                              const isUserChoice = idx === userAnswer;
-
-                              return (
-                                <div key={idx} className="space-y-1">
-                                  <div className="flex items-center justify-between text-sm">
-                                    <span className={cn(
-                                      isCorrect && 'text-green-600 font-medium',
-                                      isUserChoice && !isCorrect && 'text-destructive'
-                                    )}>
-                                      {option}
-                                      {isCorrect && ' ✓'}
-                                      {isUserChoice && ' (votre choix)'}
-                                    </span>
-                                    <span className="text-muted-foreground">{percentage}%</span>
-                                  </div>
-                                  <div className="h-2 bg-muted rounded-full overflow-hidden">
-                                    <div
-                                      className={cn(
-                                        'h-full transition-all duration-500',
-                                        isCorrect ? 'bg-green-500' : 'bg-primary'
-                                      )}
-                                      style={{ width: `${percentage}%` }}
-                                    />
-                                  </div>
-                                </div>
-                              );
-                            })}
                           </div>
                         ) : (
-                          // Show quiz form
-                          <div className="space-y-4">
+                          <>
+                            <h4 className="font-semibold text-foreground">{quiz.question}</h4>
+                            
                             <RadioGroup
                               value={selectedAnswer?.toString()}
-                              onValueChange={(val) => setSelectedAnswer(parseInt(val))}
+                              onValueChange={(val) => {
+                                if (!showResult) {
+                                  setSelectedAnswer(parseInt(val));
+                                }
+                              }}
                             >
                               {quiz.options.map((option, idx) => (
-                                <div key={idx} className="flex items-center space-x-3 p-3 rounded-lg border hover:bg-muted/50 transition-colors">
-                                  <RadioGroupItem value={idx.toString()} id={`option-${idx}`} />
-                                  <Label htmlFor={`option-${idx}`} className="flex-1 cursor-pointer">
+                                <div 
+                                  key={idx} 
+                                  className={cn(
+                                    'flex items-center space-x-3 p-3 rounded-lg border transition-colors',
+                                    showResult && idx === quiz.correct_option && 'border-green-500 bg-green-50',
+                                    showResult && selectedAnswer === idx && idx !== quiz.correct_option && 'border-destructive bg-destructive/10',
+                                    !showResult && 'hover:bg-muted/50'
+                                  )}
+                                >
+                                  <RadioGroupItem 
+                                    value={idx.toString()} 
+                                    id={`option-${idx}`}
+                                    disabled={showResult}
+                                  />
+                                  <Label 
+                                    htmlFor={`option-${idx}`} 
+                                    className={cn(
+                                      'flex-1 cursor-pointer',
+                                      showResult && idx === quiz.correct_option && 'text-green-700 font-medium',
+                                      showResult && selectedAnswer === idx && idx !== quiz.correct_option && 'text-destructive'
+                                    )}
+                                  >
                                     {option}
+                                    {showResult && idx === quiz.correct_option && ' ✓'}
                                   </Label>
                                 </div>
                               ))}
                             </RadioGroup>
-                            <Button
-                              onClick={() => {
-                                if (selectedAnswer !== null) {
-                                  submitQuizMutation.mutate({ quizId: quiz.id, selectedOption: selectedAnswer });
-                                  markProgressMutation.mutate({ dayId: day.id, field: 'quiz_completed' });
-                                }
-                              }}
-                              disabled={selectedAnswer === null || submitQuizMutation.isPending}
-                              className="w-full bg-gradient-to-r from-primary to-royal-dark"
-                            >
-                              <ChevronRight className="h-4 w-4 mr-2" />
-                              Valider ma réponse
-                            </Button>
-                          </div>
-                        )}
-                      </div>
-                    )}
 
-                    {/* PDF Tab */}
-                    {activeTab === 'pdf' && day.pdf_url && (
-                      <div className="aspect-[3/4] rounded-xl overflow-hidden bg-muted">
-                        <iframe
-                          src={day.pdf_url}
-                          title={`PDF - Jour ${day.day_number}`}
-                          className="w-full h-full"
-                        />
+                            {!showResult && (
+                              <Button
+                                onClick={() => handleSubmitQuiz(quiz, day.id)}
+                                disabled={selectedAnswer === null}
+                                className="w-full bg-gradient-to-r from-primary to-royal-dark"
+                              >
+                                <ChevronRight className="h-4 w-4 mr-2" />
+                                Valider ma réponse
+                              </Button>
+                            )}
+
+                            {showResult && !isCorrect && (
+                              <div className="text-center text-sm text-destructive">
+                                Réessayez dans un moment...
+                              </div>
+                            )}
+                          </>
+                        )}
                       </div>
                     )}
                   </div>

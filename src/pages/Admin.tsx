@@ -8,6 +8,7 @@ import AdminModuleCard from '@/components/admin/AdminModuleCard';
 import AdminModuleProgress from '@/components/admin/AdminModuleProgress';
 import AdminUsersList from '@/components/admin/AdminUsersList';
 import AdminStudentDetails from '@/components/admin/AdminStudentDetails';
+import AdminRamadanManager from '@/components/admin/AdminRamadanManager';
 import { 
   Users, 
   GraduationCap, 
@@ -16,10 +17,12 @@ import {
   BookOpen, 
   MessageSquare, 
   BookMarked, 
-  Hand 
+  Hand,
+  Settings
 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
-type ViewType = 'dashboard' | 'users' | 'students' | 'ramadan' | 'nourania' | 'alphabet' | 'invocations' | 'sourates' | 'prayer';
+type ViewType = 'dashboard' | 'users' | 'students' | 'ramadan' | 'ramadan-manage' | 'nourania' | 'alphabet' | 'invocations' | 'sourates' | 'prayer';
 
 const Admin = () => {
   const { isAdmin, loading } = useAuth();
@@ -95,6 +98,16 @@ const Admin = () => {
     );
   }
 
+  if (currentView === 'ramadan-manage') {
+    return (
+      <AppLayout title="Tableau de bord">
+        <div className="p-4">
+          <AdminRamadanManager onBack={handleBack} />
+        </div>
+      </AppLayout>
+    );
+  }
+
   if (['ramadan', 'nourania', 'alphabet', 'invocations', 'sourates', 'prayer'].includes(currentView)) {
     return (
       <AppLayout title="Tableau de bord">
@@ -135,15 +148,26 @@ const Admin = () => {
             onClick={() => setCurrentView('students')}
           />
 
-          <AdminModuleCard
-            title="Ramadan"
-            icon={Moon}
-            value={`${stats?.ramadan || 0} jours`}
-            subtitle="Progression par élève"
-            color="text-primary"
-            bgColor="bg-primary/10"
-            onClick={() => setCurrentView('ramadan')}
-          />
+          <div className="space-y-2">
+            <AdminModuleCard
+              title="Ramadan"
+              icon={Moon}
+              value={`${stats?.ramadan || 0} jours`}
+              subtitle="Progression par élève"
+              color="text-primary"
+              bgColor="bg-primary/10"
+              onClick={() => setCurrentView('ramadan')}
+            />
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full"
+              onClick={() => setCurrentView('ramadan-manage')}
+            >
+              <Settings className="h-4 w-4 mr-2" />
+              Gérer vidéos & quiz
+            </Button>
+          </div>
 
           <AdminModuleCard
             title="Nourania"
