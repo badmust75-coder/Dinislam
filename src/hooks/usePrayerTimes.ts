@@ -108,7 +108,6 @@ export const usePrayerTimes = (): UsePrayerTimesResult => {
               icon: '/favicon.ico',
               badge: '/favicon.ico',
               tag: `prayer-${prayerName.toLowerCase()}`,
-              vibrate: [100, 50, 100],
             });
           });
         } else {

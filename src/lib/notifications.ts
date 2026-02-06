@@ -31,6 +31,24 @@ export async function requestNotificationPermission(): Promise<NotificationPermi
   return Notification.permission;
 }
 
+// VAPID public key from environment
+const VAPID_PUBLIC_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY || '';
+
+function urlBase64ToUint8Array(base64String: string): Uint8Array<ArrayBuffer> {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding)
+    .replace(/-/g, '+')
+    .replace(/_/g, '/');
+
+  const rawData = atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+
+  for (let i = 0; i < rawData.length; ++i) {
+    outputArray[i] = rawData.charCodeAt(i);
+  }
+  return outputArray as Uint8Array<ArrayBuffer>;
+}
+
 export async function subscribeToPush(userId: string): Promise<boolean> {
   try {
     const registration = await navigator.serviceWorker.ready;
@@ -39,13 +57,17 @@ export async function subscribeToPush(userId: string): Promise<boolean> {
     let subscription = await registration.pushManager.getSubscription();
     
     if (!subscription) {
-      // Create a new subscription
-      // Note: In production, you would need VAPID keys
-      // For now, we'll create a placeholder subscription
-      subscription = await registration.pushManager.subscribe({
+      // Create a new subscription with VAPID key
+      const subscribeOptions: PushSubscriptionOptionsInit = {
         userVisibleOnly: true,
-        // In production, add: applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
-      });
+      };
+      
+      // Add VAPID key if available
+      if (VAPID_PUBLIC_KEY) {
+        subscribeOptions.applicationServerKey = urlBase64ToUint8Array(VAPID_PUBLIC_KEY);
+      }
+      
+      subscription = await registration.pushManager.subscribe(subscribeOptions);
     }
 
     if (subscription) {
