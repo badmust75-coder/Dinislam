@@ -1,11 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { Moon, BookOpen, Hand, BookMarked, Sparkles, Shield } from 'lucide-react';
+import { Moon, BookOpen, Hand, BookMarked, Sparkles } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import AppLayout from '@/components/layout/AppLayout';
-import AdminLoginDialog from '@/components/admin/AdminLoginDialog';
 import WelcomeNameDialog from '@/components/auth/WelcomeNameDialog';
 import { useUserProgress } from '@/hooks/useUserProgress';
 import { cn } from '@/lib/utils';
@@ -86,7 +85,6 @@ const modules: ModuleCard[] = [
 const Index = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [showAdminLogin, setShowAdminLogin] = useState(false);
   const [showWelcomeDialog, setShowWelcomeDialog] = useState(false);
   const { data: progress } = useUserProgress();
 
@@ -122,7 +120,6 @@ const Index = () => {
 
   return (
     <>
-      <AdminLoginDialog open={showAdminLogin} onOpenChange={setShowAdminLogin} />
       <WelcomeNameDialog open={showWelcomeDialog} onComplete={handleWelcomeComplete} />
       <AppLayout showBottomNav={false}>
         <div className="p-4 space-y-6">
@@ -141,7 +138,6 @@ const Index = () => {
           <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-5">
             {modules.map((module, index) => {
               const Icon = module.icon;
-              const isNourania = module.id === 'nourania';
               return (
                 <div key={module.id} className="flex flex-col items-center">
                   <button
@@ -194,17 +190,6 @@ const Index = () => {
                       )} />
                     </div>
                   </button>
-
-                  {/* Discreet Admin Shield Icon - Only under Nourania card */}
-                  {isNourania && (
-                    <button
-                      onClick={() => setShowAdminLogin(true)}
-                      className="mt-2 p-2 rounded-full hover:bg-muted/50 transition-all duration-300 opacity-40 hover:opacity-100"
-                      title="Administration"
-                    >
-                      <Shield className="h-4 w-4 text-muted-foreground" />
-                    </button>
-                  )}
                 </div>
               );
             })}
