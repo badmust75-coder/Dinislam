@@ -9,6 +9,7 @@ import AdminModuleProgress from '@/components/admin/AdminModuleProgress';
 import AdminUsersList from '@/components/admin/AdminUsersList';
 import AdminStudentDetails from '@/components/admin/AdminStudentDetails';
 import AdminRamadanManager from '@/components/admin/AdminRamadanManager';
+import AdminMessages from '@/components/admin/AdminMessages';
 import { 
   Users, 
   GraduationCap, 
@@ -18,11 +19,12 @@ import {
   MessageSquare, 
   BookMarked, 
   Hand,
-  Settings
+  Settings,
+  Mail
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
-type ViewType = 'dashboard' | 'users' | 'students' | 'ramadan' | 'ramadan-manage' | 'nourania' | 'alphabet' | 'invocations' | 'sourates' | 'prayer';
+type ViewType = 'dashboard' | 'users' | 'students' | 'ramadan' | 'ramadan-manage' | 'nourania' | 'alphabet' | 'invocations' | 'sourates' | 'prayer' | 'messages';
 
 const Admin = () => {
   const { isAdmin, loading } = useAuth();
@@ -108,6 +110,19 @@ const Admin = () => {
     );
   }
 
+  if (currentView === 'messages') {
+    return (
+      <AppLayout title="Tableau de bord">
+        <div className="p-4">
+          <Button variant="ghost" onClick={handleBack} className="mb-4">
+            ← Retour
+          </Button>
+          <AdminMessages />
+        </div>
+      </AppLayout>
+    );
+  }
+
   if (['ramadan', 'nourania', 'alphabet', 'invocations', 'sourates', 'prayer'].includes(currentView)) {
     return (
       <AppLayout title="Tableau de bord">
@@ -136,6 +151,16 @@ const Admin = () => {
             color="text-primary"
             bgColor="bg-primary/10"
             onClick={() => setCurrentView('users')}
+          />
+
+          <AdminModuleCard
+            title="Messages"
+            icon={Mail}
+            value="Voir"
+            subtitle="Messages des élèves"
+            color="text-primary"
+            bgColor="bg-primary/10"
+            onClick={() => setCurrentView('messages')}
           />
 
           <AdminModuleCard
