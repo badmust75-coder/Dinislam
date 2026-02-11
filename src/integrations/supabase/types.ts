@@ -131,6 +131,47 @@ export type Database = {
         }
         Relationships: []
       }
+      nourania_lesson_content: {
+        Row: {
+          content_type: string
+          created_at: string
+          display_order: number
+          file_name: string
+          file_url: string
+          id: string
+          lesson_id: number
+          uploaded_by: string | null
+        }
+        Insert: {
+          content_type: string
+          created_at?: string
+          display_order?: number
+          file_name: string
+          file_url: string
+          id?: string
+          lesson_id: number
+          uploaded_by?: string | null
+        }
+        Update: {
+          content_type?: string
+          created_at?: string
+          display_order?: number
+          file_name?: string
+          file_url?: string
+          id?: string
+          lesson_id?: number
+          uploaded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "nourania_lesson_content_lesson_id_fkey"
+            columns: ["lesson_id"]
+            isOneToOne: false
+            referencedRelation: "nourania_lessons"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       nourania_lessons: {
         Row: {
           audio_url: string | null

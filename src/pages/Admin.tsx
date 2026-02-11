@@ -10,6 +10,7 @@ import AdminUsersList from '@/components/admin/AdminUsersList';
 import AdminStudentDetails from '@/components/admin/AdminStudentDetails';
 import AdminRamadanManager from '@/components/admin/AdminRamadanManager';
 import AdminMessaging from '@/components/admin/AdminMessaging';
+import AdminNouraniaContent from '@/components/admin/AdminNouraniaContent';
 import { 
   Users, 
   GraduationCap, 
@@ -24,7 +25,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
-type ViewType = 'dashboard' | 'users' | 'students' | 'ramadan' | 'ramadan-manage' | 'nourania' | 'alphabet' | 'invocations' | 'sourates' | 'prayer' | 'messages';
+type ViewType = 'dashboard' | 'users' | 'students' | 'ramadan' | 'ramadan-manage' | 'nourania' | 'nourania-manage' | 'alphabet' | 'invocations' | 'sourates' | 'prayer' | 'messages';
 
 const Admin = () => {
   const { isAdmin, loading } = useAuth();
@@ -105,6 +106,19 @@ const Admin = () => {
       <AppLayout title="Tableau de bord">
         <div className="p-4">
           <AdminRamadanManager onBack={handleBack} />
+        </div>
+      </AppLayout>
+    );
+  }
+
+  if (currentView === 'nourania-manage') {
+    return (
+      <AppLayout title="Tableau de bord">
+        <div className="p-4">
+          <Button variant="ghost" onClick={handleBack} className="mb-4">
+            ← Retour
+          </Button>
+          <AdminNouraniaContent />
         </div>
       </AppLayout>
     );
@@ -194,15 +208,26 @@ const Admin = () => {
             </Button>
           </div>
 
-          <AdminModuleCard
-            title="Nourania"
-            icon={Sparkles}
-            value={`${stats?.nourania || 0} leçons`}
-            subtitle="Progression par élève"
-            color="text-gold"
-            bgColor="bg-gold/10"
-            onClick={() => setCurrentView('nourania')}
-          />
+          <div className="space-y-2">
+            <AdminModuleCard
+              title="Nourania"
+              icon={Sparkles}
+              value={`${stats?.nourania || 0} leçons`}
+              subtitle="Progression par élève"
+              color="text-gold"
+              bgColor="bg-gold/10"
+              onClick={() => setCurrentView('nourania')}
+            />
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full"
+              onClick={() => setCurrentView('nourania-manage')}
+            >
+              <Settings className="h-4 w-4 mr-2" />
+              Gérer le contenu
+            </Button>
+          </div>
 
           <AdminModuleCard
             title="Alphabet"

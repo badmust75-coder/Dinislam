@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Check, Play, FileText } from 'lucide-react';
+import { Check, Lock, Play, FileText, Image as ImageIcon, File, ChevronDown } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import AppLayout from '@/components/layout/AppLayout';
@@ -8,36 +8,17 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
-
-// Page ranges for each lesson in the PDF (based on actual 34-page document)
-// Pages 1-4 are intro, lessons start from page 5
-const LESSON_PAGE_RANGES: Record<number, { start: number; end: number }> = {
-  1: { start: 5, end: 6 },    // Lettres isolées
-  2: { start: 7, end: 8 },    // Lettres composées
-  3: { start: 9, end: 10 },   // Lettres disjointes
-  4: { start: 11, end: 12 },  // Lettres avec voyelles
-  5: { start: 13, end: 14 },  // Le Tanwin
-  6: { start: 15, end: 15 },  // Exercices sur le Tanwin
-  7: { start: 16, end: 16 },  // Le petit Alif
-  8: { start: 17, end: 17 },  // Applications
-  9: { start: 18, end: 19 },  // L'allongement (Madd)
-  10: { start: 20, end: 21 }, // Le Soukoun
-  11: { start: 22, end: 23 }, // La Chadda
-  12: { start: 24, end: 25 }, // Chadda et Tanwin
-  13: { start: 26, end: 27 }, // Lam solaire et lunaire
-  14: { start: 28, end: 28 }, // Applications
-  15: { start: 29, end: 30 }, // Règles du Tajwid
-  16: { start: 31, end: 32 }, // Révision complète
-  17: { start: 33, end: 34 }, // Examen final
-};
+import { useConfetti } from '@/hooks/useConfetti';
+import NouraniaUnlockDialog from '@/components/nourania/NouraniaUnlockDialog';
 
 const Nourania = () => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const { fireSuccess } = useConfetti();
   const [expandedLesson, setExpandedLesson] = useState<number | null>(null);
-  const [activeTab, setActiveTab] = useState<'video' | 'pdf'>('video');
+  const [unlockDialog, setUnlockDialog] = useState<{ open: boolean; lessonNumber: number; lessonId: number } | null>(null);
 
-  // Fetch lessons from database
+  // Fetch lessons
   const { data: lessons = [] } = useQuery({
     queryKey: ['nourania-lessons'],
     queryFn: async () => {
@@ -50,7 +31,20 @@ const Nourania = () => {
     },
   });
 
-  // Fetch user's progress for all lessons
+  // Fetch lesson content (videos, PDFs, images)
+  const { data: lessonContents = [] } = useQuery({
+    queryKey: ['nourania-lesson-contents'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('nourania_lesson_content')
+        .select('*')
+        .order('display_order');
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  // Fetch user's progress
   const { data: userProgress = [] } = useQuery({
     queryKey: ['nourania-progress', user?.id],
     queryFn: async () => {
@@ -65,55 +59,80 @@ const Nourania = () => {
     enabled: !!user?.id,
   });
 
-  // Calculate overall progress
   const validatedCount = userProgress.filter(p => p.is_validated).length;
   const totalLessons = lessons.length || 17;
   const progressPercentage = Math.round((validatedCount / totalLessons) * 100);
 
-  // Mutation for validating a lesson
+  const isLessonValidated = (lessonId: number) =>
+    userProgress.some(p => p.lesson_id === lessonId && p.is_validated);
+
+  const isLessonUnlocked = (index: number) => {
+    if (index === 0) return true;
+    const previousLesson = lessons[index - 1];
+    return previousLesson ? isLessonValidated(previousLesson.id) : false;
+  };
+
+  // Validate lesson mutation
   const validateMutation = useMutation({
     mutationFn: async (lessonId: number) => {
       if (!user?.id) throw new Error('Non connecté');
-      
-      // Check if progress exists using the actual database lesson_id
-      const existingProgress = userProgress.find(p => p.lesson_id === lessonId);
-      
-      if (existingProgress) {
+      const existing = userProgress.find(p => p.lesson_id === lessonId);
+
+      if (existing) {
         const { error } = await supabase
           .from('user_nourania_progress')
           .update({ is_validated: true, updated_at: new Date().toISOString() })
-          .eq('id', existingProgress.id);
+          .eq('id', existing.id);
         if (error) throw error;
       } else {
         const { error } = await supabase
           .from('user_nourania_progress')
-          .insert({
-            user_id: user.id,
-            lesson_id: lessonId,
-            is_validated: true,
-          });
+          .insert({ user_id: user.id, lesson_id: lessonId, is_validated: true });
         if (error) throw error;
       }
     },
-    onSuccess: () => {
+    onSuccess: (_, lessonId) => {
       queryClient.invalidateQueries({ queryKey: ['nourania-progress'] });
-      toast.success('Leçon validée !');
+      fireSuccess();
+      toast.success('Leçon validée ! 🎉');
+
+      // Find next lesson to show unlock dialog
+      const currentIndex = lessons.findIndex(l => l.id === lessonId);
+      const nextLesson = lessons[currentIndex + 1];
+      if (nextLesson) {
+        setTimeout(() => {
+          setUnlockDialog({
+            open: true,
+            lessonNumber: nextLesson.lesson_number,
+            lessonId: nextLesson.id,
+          });
+        }, 1500);
+      }
     },
-    onError: (error) => {
+    onError: () => {
       toast.error('Erreur lors de la validation');
-      console.error(error);
     },
   });
 
-  const isLessonValidated = (lessonId: number) => {
-    return userProgress.some(p => p.lesson_id === lessonId && p.is_validated);
+  const handleUnlockConfirm = () => {
+    if (unlockDialog) {
+      setExpandedLesson(unlockDialog.lessonId);
+      setUnlockDialog(null);
+    }
   };
 
-  // Extract YouTube video ID from URL
-  const getVideoId = (url: string | null) => {
-    if (!url) return null;
-    const match = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\s]+)/);
-    return match ? match[1] : null;
+  const getContentIcon = (type: string) => {
+    switch (type) {
+      case 'video': return <Play className="h-4 w-4" />;
+      case 'pdf': return <FileText className="h-4 w-4" />;
+      case 'image': return <ImageIcon className="h-4 w-4" />;
+      default: return <File className="h-4 w-4" />;
+    }
+  };
+
+  const handleLessonClick = (lesson: typeof lessons[0], index: number) => {
+    if (!isLessonUnlocked(index)) return;
+    setExpandedLesson(expandedLesson === lesson.id ? null : lesson.id);
   };
 
   return (
@@ -122,7 +141,7 @@ const Nourania = () => {
         {/* Header */}
         <div className="text-center space-y-2 animate-fade-in">
           <h1 className="text-2xl font-bold text-foreground">القاعدة النورانية</h1>
-          <p className="text-muted-foreground">Al-Qaida An-Nouraniya - 17 Leçons</p>
+          <p className="text-muted-foreground">Al-Qaida An-Nouraniya - {totalLessons} Leçons</p>
         </div>
 
         {/* Progress */}
@@ -139,9 +158,9 @@ const Nourania = () => {
         <div className="space-y-3">
           {lessons.map((lesson, index) => {
             const isValidated = isLessonValidated(lesson.id);
+            const unlocked = isLessonUnlocked(index);
             const isExpanded = expandedLesson === lesson.id;
-            const videoId = getVideoId(lesson.audio_url);
-            const pageRange = LESSON_PAGE_RANGES[lesson.lesson_number] || { start: 1, end: 10 };
+            const contents = lessonContents.filter(c => c.lesson_id === lesson.id);
 
             return (
               <div
@@ -149,23 +168,35 @@ const Nourania = () => {
                 className={cn(
                   'module-card rounded-2xl overflow-hidden transition-all duration-300 animate-slide-up',
                   isValidated && 'border-green-500/30 bg-green-50/30 dark:bg-green-950/20',
+                  !unlocked && 'opacity-60',
                   isExpanded && 'shadow-elevated'
                 )}
                 style={{ animationDelay: `${index * 50}ms`, animationFillMode: 'both' }}
               >
                 {/* Lesson Header */}
                 <div
-                  onClick={() => setExpandedLesson(isExpanded ? null : lesson.id)}
-                  className="w-full p-4 flex items-center gap-4 cursor-pointer"
+                  onClick={() => handleLessonClick(lesson, index)}
+                  className={cn(
+                    'w-full p-4 flex items-center gap-4',
+                    unlocked ? 'cursor-pointer' : 'cursor-not-allowed'
+                  )}
                 >
-                  {/* Lesson Number */}
+                  {/* Lesson Number / Lock */}
                   <div className={cn(
                     'w-10 h-10 rounded-xl flex items-center justify-center font-bold text-sm shrink-0',
-                    isValidated 
-                      ? 'bg-green-500 text-white' 
+                    isValidated
+                      ? 'bg-green-500 text-white'
+                      : !unlocked
+                      ? 'bg-muted text-muted-foreground'
                       : 'bg-gradient-to-br from-primary to-royal-dark text-primary-foreground'
                   )}>
-                    {isValidated ? <Check className="h-5 w-5" /> : lesson.lesson_number}
+                    {isValidated ? (
+                      <Check className="h-5 w-5" />
+                    ) : !unlocked ? (
+                      <Lock className="h-4 w-4" />
+                    ) : (
+                      lesson.lesson_number
+                    )}
                   </div>
 
                   {/* Title */}
@@ -174,80 +205,97 @@ const Nourania = () => {
                     <p className="text-sm text-muted-foreground truncate">{lesson.title_french}</p>
                   </div>
 
-                  {/* Validation Button */}
-                  <Button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (!isValidated) {
-                        validateMutation.mutate(lesson.id);
-                      }
-                    }}
-                    disabled={isValidated || validateMutation.isPending}
-                    size="sm"
-                    className={cn(
-                      'shrink-0 gap-2',
-                      isValidated 
-                        ? 'bg-muted text-muted-foreground cursor-not-allowed opacity-60 hover:bg-muted' 
-                        : 'bg-gradient-to-r from-gold to-gold-dark text-primary hover:from-gold-dark hover:to-gold'
-                    )}
-                  >
-                    <Check className="h-4 w-4" />
-                    {isValidated ? 'Validée' : 'Valider'}
-                  </Button>
+                  {/* Status */}
+                  {isValidated ? (
+                    <span className="text-xs text-green-600 font-medium flex items-center gap-1 shrink-0">
+                      <Check className="h-3 w-3" /> Validée
+                    </span>
+                  ) : unlocked ? (
+                    <ChevronDown className={cn(
+                      'h-5 w-5 text-muted-foreground transition-transform shrink-0',
+                      isExpanded && 'rotate-180'
+                    )} />
+                  ) : (
+                    <Lock className="h-4 w-4 text-muted-foreground shrink-0" />
+                  )}
                 </div>
 
                 {/* Expanded Content */}
-                {isExpanded && (
+                {isExpanded && unlocked && (
                   <div className="px-4 pb-4 space-y-4 animate-fade-in">
-                    {/* Tabs */}
-                    <div className="flex gap-2">
-                      <Button
-                        onClick={() => setActiveTab('video')}
-                        variant={activeTab === 'video' ? 'default' : 'outline'}
-                        size="sm"
-                        className="flex-1 gap-2"
-                      >
-                        <Play className="h-4 w-4" />
-                        Vidéo
-                      </Button>
-                      <Button
-                        onClick={() => setActiveTab('pdf')}
-                        variant={activeTab === 'pdf' ? 'default' : 'outline'}
-                        size="sm"
-                        className="flex-1 gap-2"
-                      >
-                        <FileText className="h-4 w-4" />
-                        PDF
-                      </Button>
-                    </div>
-
-                    {/* Video Tab */}
-                    {activeTab === 'video' && videoId && (
-                      <div className="aspect-video rounded-xl overflow-hidden bg-foreground/90">
-                        <iframe
-                          src={`https://www.youtube.com/embed/${videoId}`}
-                          title={lesson.title_french}
-                          className="w-full h-full"
-                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                          allowFullScreen
-                        />
+                    {/* Content files */}
+                    {contents.length > 0 ? (
+                      <div className="space-y-3">
+                        {contents.map((content) => (
+                          <div key={content.id}>
+                            {content.content_type === 'video' && (
+                              <div className="aspect-video rounded-xl overflow-hidden bg-foreground/5">
+                                <video
+                                  src={content.file_url}
+                                  controls
+                                  className="w-full h-full"
+                                  preload="metadata"
+                                />
+                              </div>
+                            )}
+                            {content.content_type === 'pdf' && (
+                              <div className="space-y-2">
+                                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                  {getContentIcon('pdf')}
+                                  <span>{content.file_name}</span>
+                                </div>
+                                <div className="aspect-[3/4] rounded-xl overflow-hidden bg-muted">
+                                  <iframe
+                                    src={content.file_url}
+                                    title={content.file_name}
+                                    className="w-full h-full"
+                                  />
+                                </div>
+                              </div>
+                            )}
+                            {content.content_type === 'image' && (
+                              <div className="rounded-xl overflow-hidden">
+                                <img
+                                  src={content.file_url}
+                                  alt={content.file_name}
+                                  className="w-full h-auto rounded-xl"
+                                  loading="lazy"
+                                />
+                              </div>
+                            )}
+                            {content.content_type === 'document' && (
+                              <a
+                                href={content.file_url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex items-center gap-2 p-3 bg-muted/50 rounded-xl hover:bg-muted transition-colors"
+                              >
+                                {getContentIcon('document')}
+                                <span className="text-sm">{content.file_name}</span>
+                              </a>
+                            )}
+                          </div>
+                        ))}
                       </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground text-center py-4 italic">
+                        Contenu à venir...
+                      </p>
                     )}
 
-                    {/* PDF Tab - Embedded PDF viewer with specific pages */}
-                    {activeTab === 'pdf' && (
-                      <div className="space-y-3">
-                        <p className="text-sm text-muted-foreground text-center">
-                          Pages {pageRange.start} à {pageRange.end}
-                        </p>
-                        <div className="aspect-[3/4] rounded-xl overflow-hidden bg-muted">
-                          <iframe
-                            src={`/pdf/nourania.pdf#page=${pageRange.start}`}
-                            title={`${lesson.title_french} - PDF`}
-                            className="w-full h-full"
-                          />
-                        </div>
-                      </div>
+                    {/* Validate button */}
+                    {!isValidated && (
+                      <Button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          validateMutation.mutate(lesson.id);
+                        }}
+                        disabled={validateMutation.isPending}
+                        className="w-full gap-2 bg-gradient-to-r from-gold to-gold-dark text-primary hover:from-gold-dark hover:to-gold"
+                      >
+                        <Check className="h-4 w-4" />
+                        Valider cette leçon
+                      </Button>
                     )}
                   </div>
                 )}
@@ -256,6 +304,16 @@ const Nourania = () => {
           })}
         </div>
       </div>
+
+      {/* Unlock Dialog */}
+      {unlockDialog && (
+        <NouraniaUnlockDialog
+          open={unlockDialog.open}
+          onOpenChange={(open) => !open && setUnlockDialog(null)}
+          onConfirm={handleUnlockConfirm}
+          lessonNumber={unlockDialog.lessonNumber}
+        />
+      )}
     </AppLayout>
   );
 };
