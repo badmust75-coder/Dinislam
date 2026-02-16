@@ -180,12 +180,9 @@ const Ramadan = () => {
       return;
     }
     if (waiting) {
-      const unlockTime = getDayUnlockTime(day.day_number);
-      if (unlockTime) {
-        const diff = unlockTime.getTime() - now.getTime();
-        const hours = Math.ceil(diff / (1000 * 60 * 60));
-        toast.info(`Ce jour sera disponible dans ~${hours}h. Bsaha ftourek ! 🌙`);
-      }
+      toast.info(`Rendez-vous demain à partir de 16h et bsaha ftourek 🌙`, {
+        style: { textAlign: 'center', display: 'flex', justifyContent: 'center' },
+      });
       return;
     }
     if (!isUnlocked) {
@@ -255,6 +252,15 @@ const Ramadan = () => {
             const hasContent = dayHasContent(day);
             const waiting = isWaitingForTime(day.day_number);
             const notStarted = day.day_number === 1 && !settings?.start_enabled;
+            const isLocked = notStarted || (!isUnlocked && !waiting);
+
+            const getDayBg = (dayNum: number) => {
+              if (isCompleted) return 'bg-gradient-to-br from-green-500 to-green-600 text-white shadow-md';
+              if (waiting) return 'bg-gradient-to-br from-orange-400 to-orange-500 text-white cursor-wait';
+              if (dayNum <= 10) return 'bg-[hsl(140,40%,88%)] text-[hsl(140,30%,35%)]';
+              if (dayNum <= 20) return 'bg-gradient-to-br from-[hsl(140,40%,88%)] to-[hsl(50,60%,85%)] text-[hsl(45,40%,30%)]';
+              return 'bg-gradient-to-br from-[hsl(50,60%,85%)] to-[hsl(35,70%,75%)] text-[hsl(30,50%,25%)]';
+            };
 
             return (
               <button
@@ -262,25 +268,34 @@ const Ramadan = () => {
                 onClick={() => handleDayClick(day)}
                 className={cn(
                   'aspect-square rounded-xl flex flex-col items-center justify-center text-sm font-bold transition-all duration-200 relative',
-                  isCompleted
-                    ? 'bg-gradient-to-br from-green-500 to-green-600 text-white shadow-md'
-                    : waiting
-                    ? 'bg-gradient-to-br from-orange-400 to-orange-500 text-white cursor-wait'
-                    : notStarted || !isUnlocked
-                    ? 'bg-muted/50 text-muted-foreground cursor-not-allowed'
-                    : !hasContent
-                    ? 'bg-muted/30 text-muted-foreground/50'
-                    : 'bg-muted hover:bg-muted/80 text-foreground'
+                  getDayBg(day.day_number),
+                  !isCompleted && !waiting && !isUnlocked && 'cursor-not-allowed',
+                  !isCompleted && !waiting && isUnlocked && !hasContent && 'opacity-60',
+                  !isCompleted && !waiting && isUnlocked && hasContent && 'hover:scale-105'
                 )}
               >
+                {/* Lock badge top-right */}
+                {(isLocked || waiting) && !isCompleted && (
+                  <div className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-white shadow flex items-center justify-center">
+                    {waiting ? (
+                      <Clock className="h-2.5 w-2.5 text-orange-500" />
+                    ) : (
+                      <Lock className="h-2.5 w-2.5 text-muted-foreground" />
+                    )}
+                  </div>
+                )}
+
                 {isCompleted ? (
                   <Check className="h-4 w-4" />
-                ) : waiting ? (
-                  <Clock className="h-4 w-4" />
-                ) : notStarted || !isUnlocked ? (
-                  <Lock className="h-4 w-4" />
                 ) : (
-                  <span>{day.day_number}</span>
+                  <>
+                    {/* Moon + star icon */}
+                    <svg viewBox="0 0 24 24" className="h-4 w-4 mb-0.5 opacity-70" fill="currentColor">
+                      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10c1.82 0 3.53-.5 5-1.35-2.99-1.73-5-4.95-5-8.65s2.01-6.92 5-8.65C15.53 2.5 13.82 2 12 2z" opacity="0.8"/>
+                      <path d="M17 7l.62 1.38L19 9l-1.38.62L17 11l-.62-1.38L15 9l1.38-.62L17 7z" opacity="0.9"/>
+                    </svg>
+                    <span className="text-[10px]">{day.day_number}</span>
+                  </>
                 )}
               </button>
             );
