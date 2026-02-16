@@ -1,14 +1,14 @@
 import { useState, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { ArrowLeft, Upload, Video, HelpCircle, Plus, Trash2, Save, Loader2, Rocket } from 'lucide-react';
+import { ArrowLeft, Upload, Video, HelpCircle, Trash2, Save, Loader2, Rocket } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -28,6 +28,19 @@ interface Quiz {
   correct_option: number | null;
 }
 
+interface QuestionForm {
+  question: string;
+  options: string[];
+  correctOption: number;
+  existingId?: string;
+}
+
+const emptyQuestion = (): QuestionForm => ({
+  question: '',
+  options: ['', '', '', ''],
+  correctOption: 0,
+});
+
 const AdminRamadanManager = ({ onBack }: AdminRamadanManagerProps) => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -36,12 +49,12 @@ const AdminRamadanManager = ({ onBack }: AdminRamadanManagerProps) => {
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
   const [uploading, setUploading] = useState(false);
   
-  // Quiz form state
-  const [quizQuestion, setQuizQuestion] = useState('');
-  const [quizOptions, setQuizOptions] = useState(['', '', '', '']);
-  const [correctOption, setCorrectOption] = useState<number>(0);
+  // Quiz form: 4 questions per day
+  const [questions, setQuestions] = useState<QuestionForm[]>([
+    emptyQuestion(), emptyQuestion(), emptyQuestion(), emptyQuestion(),
+  ]);
 
-  // Fetch ramadan settings (start_enabled)
+  // Fetch ramadan settings
   const { data: settings } = useQuery({
     queryKey: ['ramadan-settings'],
     queryFn: async () => {
@@ -82,37 +95,30 @@ const AdminRamadanManager = ({ onBack }: AdminRamadanManagerProps) => {
     },
   });
 
-  // Get quiz for a specific day
-  const getQuizForDay = (dayId: number) => quizzes.find(q => q.day_id === dayId);
+  const getQuizzesForDay = (dayId: number) => quizzes.filter(q => q.day_id === dayId);
   const currentDayData = days.find(d => d.id === selectedDay);
-  const currentQuiz = selectedDay ? getQuizForDay(selectedDay) : null;
+  const currentQuizzes = selectedDay ? getQuizzesForDay(selectedDay) : [];
 
   // Upload video mutation
   const uploadVideoMutation = useMutation({
     mutationFn: async ({ dayId, file }: { dayId: number; file: File }) => {
       setUploading(true);
-      
       const fileExt = file.name.split('.').pop();
       const fileName = `day-${dayId}-${Date.now()}.${fileExt}`;
       
-      // Upload to storage
       const { error: uploadError } = await supabase.storage
         .from('ramadan-videos')
         .upload(fileName, file, { upsert: true });
-      
       if (uploadError) throw uploadError;
       
-      // Get public URL
       const { data: { publicUrl } } = supabase.storage
         .from('ramadan-videos')
         .getPublicUrl(fileName);
       
-      // Update day with video URL
       const { error: updateError } = await supabase
         .from('ramadan_days')
         .update({ video_url: publicUrl })
         .eq('id', dayId);
-      
       if (updateError) throw updateError;
       
       return publicUrl;
@@ -129,40 +135,38 @@ const AdminRamadanManager = ({ onBack }: AdminRamadanManagerProps) => {
     },
   });
 
-  // Save/Update quiz mutation
-  const saveQuizMutation = useMutation({
-    mutationFn: async ({ dayId, question, options, correctOption, existingQuizId }: {
-      dayId: number;
-      question: string;
-      options: string[];
-      correctOption: number;
-      existingQuizId?: string;
-    }) => {
-      if (existingQuizId) {
-        const { error } = await supabase
-          .from('ramadan_quizzes')
-          .update({
-            question,
-            options: options as unknown as string,
-            correct_option: correctOption,
-          })
-          .eq('id', existingQuizId);
-        if (error) throw error;
-      } else {
-        const { error } = await supabase
-          .from('ramadan_quizzes')
-          .insert({
-            day_id: dayId,
-            question,
-            options: options as unknown as string,
-            correct_option: correctOption,
-          });
-        if (error) throw error;
+  // Save all 4 quiz questions mutation
+  const saveQuizzesMutation = useMutation({
+    mutationFn: async ({ dayId, questionForms }: { dayId: number; questionForms: QuestionForm[] }) => {
+      for (const qf of questionForms) {
+        if (!qf.question.trim()) continue; // skip empty questions
+        
+        if (qf.existingId) {
+          const { error } = await supabase
+            .from('ramadan_quizzes')
+            .update({
+              question: qf.question,
+              options: qf.options as unknown as string,
+              correct_option: qf.correctOption,
+            })
+            .eq('id', qf.existingId);
+          if (error) throw error;
+        } else {
+          const { error } = await supabase
+            .from('ramadan_quizzes')
+            .insert({
+              day_id: dayId,
+              question: qf.question,
+              options: qf.options as unknown as string,
+              correct_option: qf.correctOption,
+            });
+          if (error) throw error;
+        }
       }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-ramadan-quizzes'] });
-      toast({ title: 'Quiz enregistré avec succès' });
+      toast({ title: 'Quiz enregistré avec succès (4 questions)' });
     },
     onError: () => {
       toast({ title: 'Erreur lors de l\'enregistrement', variant: 'destructive' });
@@ -172,9 +176,7 @@ const AdminRamadanManager = ({ onBack }: AdminRamadanManagerProps) => {
   // Delete quiz mutation
   const deleteQuizMutation = useMutation({
     mutationFn: async (quizId: string) => {
-      // First delete all responses for this quiz
       await supabase.from('quiz_responses').delete().eq('quiz_id', quizId);
-      
       const { error } = await supabase
         .from('ramadan_quizzes')
         .delete()
@@ -183,10 +185,23 @@ const AdminRamadanManager = ({ onBack }: AdminRamadanManagerProps) => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-ramadan-quizzes'] });
-      toast({ title: 'Quiz supprimé' });
-      setQuizQuestion('');
-      setQuizOptions(['', '', '', '']);
-      setCorrectOption(0);
+      toast({ title: 'Question supprimée' });
+    },
+  });
+
+  // Delete all quizzes for a day
+  const deleteAllQuizzesMutation = useMutation({
+    mutationFn: async (dayId: number) => {
+      const dayQuizzes = getQuizzesForDay(dayId);
+      for (const q of dayQuizzes) {
+        await supabase.from('quiz_responses').delete().eq('quiz_id', q.id);
+        await supabase.from('ramadan_quizzes').delete().eq('id', q.id);
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-ramadan-quizzes'] });
+      toast({ title: 'Toutes les questions supprimées' });
+      setQuestions([emptyQuestion(), emptyQuestion(), emptyQuestion(), emptyQuestion()]);
     },
   });
 
@@ -194,21 +209,26 @@ const AdminRamadanManager = ({ onBack }: AdminRamadanManagerProps) => {
   const toggleStartMutation = useMutation({
     mutationFn: async () => {
       const newValue = !settings?.start_enabled;
+      const updateData: Record<string, unknown> = {
+        start_enabled: newValue,
+        updated_at: new Date().toISOString(),
+      };
+      // Set started_at when enabling for the first time
+      if (newValue && !settings?.started_at) {
+        updateData.started_at = new Date().toISOString();
+      }
       const { error } = await supabase
         .from('ramadan_settings')
-        .update({ 
-          start_enabled: newValue, 
-          updated_at: new Date().toISOString() 
-        })
+        .update(updateData)
         .eq('id', settings?.id);
       if (error) throw error;
       return newValue;
     },
     onSuccess: (newValue) => {
       queryClient.invalidateQueries({ queryKey: ['ramadan-settings'] });
-      toast({ 
-        title: newValue 
-          ? '🚀 Top départ activé ! Les élèves peuvent commencer.' 
+      toast({
+        title: newValue
+          ? '🚀 Top départ activé ! Les élèves peuvent commencer.'
           : 'Top départ désactivé'
       });
     },
@@ -226,31 +246,57 @@ const AdminRamadanManager = ({ onBack }: AdminRamadanManagerProps) => {
 
   const handleOpenDay = (dayId: number) => {
     setSelectedDay(dayId);
-    const quiz = getQuizForDay(dayId);
-    if (quiz) {
-      setQuizQuestion(quiz.question);
-      setQuizOptions(quiz.options);
-      setCorrectOption(quiz.correct_option ?? 0);
-    } else {
-      setQuizQuestion('');
-      setQuizOptions(['', '', '', '']);
-      setCorrectOption(0);
+    const existing = getQuizzesForDay(dayId);
+    const newQuestions: QuestionForm[] = [];
+    for (let i = 0; i < 4; i++) {
+      if (existing[i]) {
+        newQuestions.push({
+          question: existing[i].question,
+          options: existing[i].options,
+          correctOption: existing[i].correct_option ?? 0,
+          existingId: existing[i].id,
+        });
+      } else {
+        newQuestions.push(emptyQuestion());
+      }
     }
+    setQuestions(newQuestions);
+  };
+
+  const updateQuestion = (idx: number, field: keyof QuestionForm, value: unknown) => {
+    setQuestions(prev => {
+      const copy = [...prev];
+      copy[idx] = { ...copy[idx], [field]: value };
+      return copy;
+    });
+  };
+
+  const updateQuestionOption = (qIdx: number, optIdx: number, value: string) => {
+    setQuestions(prev => {
+      const copy = [...prev];
+      const newOptions = [...copy[qIdx].options];
+      newOptions[optIdx] = value;
+      copy[qIdx] = { ...copy[qIdx], options: newOptions };
+      return copy;
+    });
   };
 
   const handleSaveQuiz = () => {
-    if (!selectedDay || !quizQuestion.trim() || quizOptions.some(o => !o.trim())) {
-      toast({ title: 'Veuillez remplir tous les champs', variant: 'destructive' });
+    if (!selectedDay) return;
+    
+    const filledQuestions = questions.filter(q => q.question.trim());
+    if (filledQuestions.length === 0) {
+      toast({ title: 'Veuillez remplir au moins une question', variant: 'destructive' });
       return;
     }
+    for (const q of filledQuestions) {
+      if (q.options.some(o => !o.trim())) {
+        toast({ title: 'Veuillez remplir toutes les options des questions', variant: 'destructive' });
+        return;
+      }
+    }
     
-    saveQuizMutation.mutate({
-      dayId: selectedDay,
-      question: quizQuestion,
-      options: quizOptions,
-      correctOption,
-      existingQuizId: currentQuiz?.id,
-    });
+    saveQuizzesMutation.mutate({ dayId: selectedDay, questionForms: questions });
   };
 
   return (
@@ -262,7 +308,7 @@ const AdminRamadanManager = ({ onBack }: AdminRamadanManagerProps) => {
         </Button>
         <div className="flex-1">
           <h2 className="text-xl font-bold text-foreground">Gestion Ramadan</h2>
-          <p className="text-sm text-muted-foreground">Téléverser vidéos et créer quiz</p>
+          <p className="text-sm text-muted-foreground">Téléverser vidéos et créer quiz (4 questions/jour)</p>
         </div>
       </div>
 
@@ -277,8 +323,8 @@ const AdminRamadanManager = ({ onBack }: AdminRamadanManagerProps) => {
               <div>
                 <p className="font-bold text-foreground">Top Départ</p>
                 <p className="text-sm text-muted-foreground">
-                  {settings?.start_enabled 
-                    ? 'Les élèves peuvent accéder au Jour 1' 
+                  {settings?.start_enabled
+                    ? 'Les élèves peuvent accéder au Jour 1'
                     : 'Le calendrier est verrouillé pour les élèves'}
                 </p>
               </div>
@@ -308,7 +354,7 @@ const AdminRamadanManager = ({ onBack }: AdminRamadanManagerProps) => {
       <div className="grid grid-cols-5 sm:grid-cols-6 md:grid-cols-10 gap-2">
         {days.map((day) => {
           const hasVideo = !!day.video_url;
-          const hasQuiz = !!getQuizForDay(day.id);
+          const quizCount = getQuizzesForDay(day.id).length;
           
           return (
             <button
@@ -316,9 +362,9 @@ const AdminRamadanManager = ({ onBack }: AdminRamadanManagerProps) => {
               onClick={() => handleOpenDay(day.id)}
               className={`
                 aspect-square rounded-xl flex flex-col items-center justify-center text-sm font-bold transition-all duration-200
-                ${hasVideo && hasQuiz 
-                  ? 'bg-gradient-to-br from-green-500 to-green-600 text-white' 
-                  : hasVideo || hasQuiz
+                ${hasVideo && quizCount >= 4
+                  ? 'bg-gradient-to-br from-green-500 to-green-600 text-white'
+                  : hasVideo || quizCount > 0
                   ? 'bg-gradient-to-br from-gold to-gold-dark text-primary'
                   : 'bg-muted hover:bg-muted/80 text-foreground'
                 }
@@ -327,7 +373,7 @@ const AdminRamadanManager = ({ onBack }: AdminRamadanManagerProps) => {
               <span>{day.day_number}</span>
               <div className="flex gap-0.5 mt-1">
                 {hasVideo && <Video className="h-3 w-3" />}
-                {hasQuiz && <HelpCircle className="h-3 w-3" />}
+                {quizCount > 0 && <span className="text-[10px]">{quizCount}Q</span>}
               </div>
             </button>
           );
@@ -338,7 +384,7 @@ const AdminRamadanManager = ({ onBack }: AdminRamadanManagerProps) => {
       <div className="flex gap-4 text-xs text-muted-foreground">
         <div className="flex items-center gap-1">
           <div className="w-4 h-4 rounded bg-gradient-to-br from-green-500 to-green-600" />
-          <span>Complet</span>
+          <span>Complet (vidéo + 4Q)</span>
         </div>
         <div className="flex items-center gap-1">
           <div className="w-4 h-4 rounded bg-gradient-to-br from-gold to-gold-dark" />
@@ -352,7 +398,7 @@ const AdminRamadanManager = ({ onBack }: AdminRamadanManagerProps) => {
 
       {/* Day Editor Dialog */}
       <Dialog open={!!selectedDay} onOpenChange={() => setSelectedDay(null)}>
-        <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
+        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               Jour {currentDayData?.day_number}
@@ -372,14 +418,11 @@ const AdminRamadanManager = ({ onBack }: AdminRamadanManagerProps) => {
               
               {currentDayData?.video_url ? (
                 <div className="space-y-2">
-                  <video 
-                    src={currentDayData.video_url} 
-                    controls 
+                  <video
+                    src={currentDayData.video_url}
+                    controls
                     className="w-full rounded-lg aspect-video bg-black"
                   />
-                  <p className="text-xs text-muted-foreground truncate">
-                    {currentDayData.video_url}
-                  </p>
                 </div>
               ) : (
                 <div className="border-2 border-dashed rounded-lg p-8 text-center">
@@ -415,70 +458,86 @@ const AdminRamadanManager = ({ onBack }: AdminRamadanManagerProps) => {
               </Button>
             </div>
 
-            {/* Quiz Section */}
-            <div className="space-y-3 border-t pt-4">
+            {/* Quiz Section: 4 Questions */}
+            <div className="space-y-4 border-t pt-4">
               <div className="flex items-center justify-between">
                 <Label className="flex items-center gap-2 text-base font-semibold">
                   <HelpCircle className="h-4 w-4 text-gold" />
-                  Quiz du jour
+                  Quiz du jour (4 questions)
                 </Label>
-                {currentQuiz && (
+                {currentQuizzes.length > 0 && selectedDay && (
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => deleteQuizMutation.mutate(currentQuiz.id)}
+                    onClick={() => deleteAllQuizzesMutation.mutate(selectedDay)}
                     className="text-destructive hover:text-destructive"
                   >
-                    <Trash2 className="h-4 w-4" />
+                    <Trash2 className="h-4 w-4 mr-1" />
+                    Tout suppr.
                   </Button>
                 )}
               </div>
 
-              <div className="space-y-3">
-                <div>
-                  <Label>Question</Label>
+              {questions.map((qf, qIdx) => (
+                <div key={qIdx} className="space-y-2 p-3 rounded-lg border bg-muted/30">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-sm font-medium">Question {qIdx + 1}</Label>
+                    {qf.existingId && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 text-destructive"
+                        onClick={() => {
+                          deleteQuizMutation.mutate(qf.existingId!);
+                          updateQuestion(qIdx, 'existingId', undefined);
+                          updateQuestion(qIdx, 'question', '');
+                          setQuestions(prev => {
+                            const copy = [...prev];
+                            copy[qIdx] = emptyQuestion();
+                            return copy;
+                          });
+                        }}
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    )}
+                  </div>
                   <Textarea
-                    value={quizQuestion}
-                    onChange={(e) => setQuizQuestion(e.target.value)}
-                    placeholder="Entrez la question du quiz..."
+                    value={qf.question}
+                    onChange={(e) => updateQuestion(qIdx, 'question', e.target.value)}
+                    placeholder={`Entrez la question ${qIdx + 1}...`}
                     rows={2}
                   />
+                  <div className="space-y-1.5">
+                    {qf.options.map((opt, optIdx) => (
+                      <div key={optIdx} className="flex items-center gap-2">
+                        <input
+                          type="radio"
+                          name={`correct-q${qIdx}`}
+                          checked={qf.correctOption === optIdx}
+                          onChange={() => updateQuestion(qIdx, 'correctOption', optIdx)}
+                          className="h-3.5 w-3.5 accent-green-500"
+                        />
+                        <Input
+                          value={opt}
+                          onChange={(e) => updateQuestionOption(qIdx, optIdx, e.target.value)}
+                          placeholder={`Option ${optIdx + 1}`}
+                          className={`h-8 text-sm ${qf.correctOption === optIdx ? 'border-green-500' : ''}`}
+                        />
+                      </div>
+                    ))}
+                  </div>
                 </div>
+              ))}
 
-                <div className="space-y-2">
-                  <Label>Options (sélectionnez la bonne réponse)</Label>
-                  {quizOptions.map((option, idx) => (
-                    <div key={idx} className="flex items-center gap-2">
-                      <input
-                        type="radio"
-                        name="correct-option"
-                        checked={correctOption === idx}
-                        onChange={() => setCorrectOption(idx)}
-                        className="h-4 w-4 accent-green-500"
-                      />
-                      <Input
-                        value={option}
-                        onChange={(e) => {
-                          const newOptions = [...quizOptions];
-                          newOptions[idx] = e.target.value;
-                          setQuizOptions(newOptions);
-                        }}
-                        placeholder={`Option ${idx + 1}`}
-                        className={correctOption === idx ? 'border-green-500' : ''}
-                      />
-                    </div>
-                  ))}
-                </div>
-
-                <Button
-                  onClick={handleSaveQuiz}
-                  disabled={saveQuizMutation.isPending}
-                  className="w-full"
-                >
-                  <Save className="h-4 w-4 mr-2" />
-                  {currentQuiz ? 'Mettre à jour le quiz' : 'Créer le quiz'}
-                </Button>
-              </div>
+              <Button
+                onClick={handleSaveQuiz}
+                disabled={saveQuizzesMutation.isPending}
+                className="w-full"
+              >
+                <Save className="h-4 w-4 mr-2" />
+                {currentQuizzes.length > 0 ? 'Mettre à jour le quiz' : 'Créer le quiz (4 questions)'}
+              </Button>
             </div>
           </div>
         </DialogContent>

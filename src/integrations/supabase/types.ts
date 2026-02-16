@@ -443,18 +443,21 @@ export type Database = {
         Row: {
           id: string
           start_enabled: boolean
+          started_at: string | null
           updated_at: string
           updated_by: string | null
         }
         Insert: {
           id?: string
           start_enabled?: boolean
+          started_at?: string | null
           updated_at?: string
           updated_by?: string | null
         }
         Update: {
           id?: string
           start_enabled?: boolean
+          started_at?: string | null
           updated_at?: string
           updated_by?: string | null
         }
