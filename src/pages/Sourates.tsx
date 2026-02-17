@@ -330,6 +330,16 @@ const SouratesPage = () => {
             status: 'pending',
           });
 
+        // Send push notification to admin
+        const sourateName = selectedSourate ? selectedSourate.name_french : `Sourate inconnue`;
+        supabase.functions.invoke('send-push-notification', {
+          body: {
+            title: '📖 Validation en attente',
+            body: `Un élève a terminé ${sourateName} et attend votre validation.`,
+            type: 'admin',
+          },
+        }).catch(err => console.error('Push notification error:', err));
+
         toast({
           title: 'بارك الله فيك',
           description: 'Tous les versets sont cochés ! En attente de validation par l\'enseignant.',

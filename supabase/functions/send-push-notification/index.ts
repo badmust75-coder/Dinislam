@@ -16,7 +16,7 @@ interface PushSubscription {
 interface NotificationPayload {
   title: string;
   body: string;
-  type: 'all' | 'prayer' | 'ramadan';
+  type: 'all' | 'prayer' | 'ramadan' | 'admin';
   subscriptions?: PushSubscription[];
 }
 
@@ -147,7 +147,16 @@ serve(async (req) => {
     let targetSubscriptions = allSubscriptions || [];
 
     // Filter subscriptions based on notification type
-    if (type === 'prayer' || type === 'ramadan') {
+    if (type === 'admin') {
+      // Only send to admin users
+      const { data: adminRoles } = await supabase
+        .from('user_roles')
+        .select('user_id')
+        .eq('role', 'admin');
+
+      const adminUserIds = adminRoles?.map(r => r.user_id) || [];
+      targetSubscriptions = targetSubscriptions.filter(s => adminUserIds.includes(s.user_id));
+    } else if (type === 'prayer' || type === 'ramadan') {
       const { data: preferences } = await supabase
         .from('notification_preferences')
         .select('user_id, prayer_reminders, ramadan_activities');
