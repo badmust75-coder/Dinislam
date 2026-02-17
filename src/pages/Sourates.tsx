@@ -202,6 +202,55 @@ const SouratesPage = () => {
     if (user) loadAll();
   }, [user, loadAll]);
 
+  // Listen for admin validation approvals in realtime
+  useEffect(() => {
+    if (!user) return;
+    const channel = supabase
+      .channel('user-validation-approvals')
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'sourate_validation_requests',
+        filter: `user_id=eq.${user.id}`,
+      }, (payload) => {
+        const newRecord = payload.new as any;
+        if (newRecord.status === 'approved') {
+          const approvedSourateId = newRecord.sourate_id;
+          // Mark sourate as validated
+          setSourateProgress(prev => {
+            const newMap = new Map(prev);
+            const existing = newMap.get(approvedSourateId) || { is_validated: false, is_memorized: false, progress_percentage: 0 };
+            newMap.set(approvedSourateId, { ...existing, is_validated: true, progress_percentage: 100 });
+            return newMap;
+          });
+          // Find the sourate number from dbSourates
+          let validatedNumber: number | null = null;
+          for (const [num, id] of dbSourates.entries()) {
+            if (id === approvedSourateId) { validatedNumber = num; break; }
+          }
+          if (validatedNumber) {
+            fireSuccess();
+            const nextNumber = validatedNumber - 1;
+            if (nextNumber >= 1) {
+              const nextSourate = SOURATES_DATA.find(s => s.number === nextNumber);
+              if (nextSourate) {
+                setTimeout(() => {
+                  setUnlockDialog({
+                    open: true,
+                    sourateName: nextSourate.name_french,
+                    sourateNumber: nextNumber,
+                  });
+                }, 1500);
+              }
+            }
+          }
+        }
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [user, dbSourates, fireSuccess]);
+
   const isSourateAccessible = (sourateNumber: number): boolean => {
     const dbId = dbSourates.get(sourateNumber);
     if (!dbId) return sourateNumber === 114;
@@ -249,39 +298,39 @@ const SouratesPage = () => {
       const percentage = Math.round((validatedVerses / versesCount) * 100);
       const allValidated = validatedVerses === versesCount;
 
+      // Update progress percentage (but NOT is_validated - admin must approve)
       await supabase
         .from('user_sourate_progress')
         .upsert({
           user_id: user.id,
           sourate_id: sourateDbId,
-          is_validated: allValidated,
           progress_percentage: percentage,
         }, { onConflict: 'user_id,sourate_id' });
 
       setSourateProgress(prev => {
         const newMap = new Map(prev);
         const existing = newMap.get(sourateDbId) || { is_validated: false, is_memorized: false, progress_percentage: 0 };
-        newMap.set(sourateDbId, { ...existing, is_validated: allValidated, progress_percentage: percentage });
+        newMap.set(sourateDbId, { ...existing, progress_percentage: percentage });
         return newMap;
       });
 
       if (allValidated && !sourateProgress.get(sourateDbId)?.is_validated) {
-        fireSuccess();
-        // Close the detail dialog and return to path view
+        // Close dialog and return to path view
         setSelectedSourate(null);
-        const nextNumber = sourateNumber - 1;
-        if (nextNumber >= 1) {
-          const nextSourate = SOURATES_DATA.find(s => s.number === nextNumber);
-          if (nextSourate) {
-            setTimeout(() => {
-              setUnlockDialog({
-                open: true,
-                sourateName: nextSourate.name_french,
-                sourateNumber: nextNumber,
-              });
-            }, 1500);
-          }
-        }
+        
+        // Create a pending validation request for admin (ignore if already pending)
+        await supabase
+          .from('sourate_validation_requests')
+          .insert({
+            user_id: user.id,
+            sourate_id: sourateDbId,
+            status: 'pending',
+          });
+
+        toast({
+          title: 'بارك الله فيك',
+          description: 'Tous les versets sont cochés ! En attente de validation par l\'enseignant.',
+        });
       }
     } catch (error) {
       console.error('Error updating verse:', error);

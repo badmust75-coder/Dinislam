@@ -1,9 +1,10 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Progress } from '@/components/ui/progress';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Badge } from '@/components/ui/badge';
-import { Check, BookOpen, FileText, Video, Image, File } from 'lucide-react';
+import { Check, BookOpen, FileText, File } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useQuranVerses } from '@/hooks/useQuranVerses';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface SourateDetailDialogProps {
   open: boolean;
@@ -32,6 +33,8 @@ const SourateDetailDialog = ({
   contents,
   onVerseToggle,
 }: SourateDetailDialogProps) => {
+  const { verses, loading: versesLoading } = useQuranVerses(open ? sourate.number : null);
+
   if (!dbId) return null;
 
   let validatedVerses = 0;
@@ -109,35 +112,66 @@ const SourateDetailDialog = ({
           {/* Verses */}
           <div className="space-y-2">
             <p className="text-sm font-medium text-foreground">Versets</p>
-            <div className="grid grid-cols-1 gap-1 max-h-64 overflow-y-auto">
-              {Array.from({ length: sourate.verses_count }, (_, i) => i + 1).map(verseNum => {
-                const isVerseValidated = verseProgress.get(`${dbId}-${verseNum}`) || false;
-                return (
-                  <div
-                    key={verseNum}
-                    className={cn(
-                      'flex items-center gap-3 p-2 rounded-lg transition-colors',
-                      isVerseValidated ? 'bg-green-50 dark:bg-green-950/30' : 'bg-muted/30'
-                    )}
-                  >
-                    <Checkbox
-                      checked={isVerseValidated}
-                      onCheckedChange={() => onVerseToggle(dbId, verseNum, sourate.number, sourate.verses_count)}
+            <div className="grid grid-cols-1 gap-2 max-h-[50vh] overflow-y-auto">
+              {versesLoading ? (
+                Array.from({ length: Math.min(sourate.verses_count, 6) }).map((_, i) => (
+                  <Skeleton key={i} className="h-20 rounded-lg" />
+                ))
+              ) : (
+                Array.from({ length: sourate.verses_count }, (_, i) => i + 1).map(verseNum => {
+                  const isVerseValidated = verseProgress.get(`${dbId}-${verseNum}`) || false;
+                  const verseData = verses.find(v => v.id === verseNum);
+                  return (
+                    <div
+                      key={verseNum}
                       className={cn(
-                        'h-5 w-5 rounded border-2',
-                        isVerseValidated ? 'border-green-500 bg-green-500 data-[state=checked]:bg-green-500' : 'border-gold'
+                        'flex items-start gap-3 p-3 rounded-lg transition-colors border',
+                        isVerseValidated 
+                          ? 'bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-800' 
+                          : 'bg-muted/30 border-transparent'
                       )}
-                    />
-                    <span className={cn(
-                      'text-sm',
-                      isVerseValidated ? 'text-green-600 dark:text-green-400 line-through' : 'text-foreground'
-                    )}>
-                      Verset {verseNum}
-                    </span>
-                    {isVerseValidated && <Check className="h-4 w-4 text-green-500 ml-auto" />}
-                  </div>
-                );
-              })}
+                    >
+                      <Checkbox
+                        checked={isVerseValidated}
+                        onCheckedChange={() => onVerseToggle(dbId, verseNum, sourate.number, sourate.verses_count)}
+                        className={cn(
+                          'h-5 w-5 rounded border-2 mt-1 shrink-0',
+                          isVerseValidated ? 'border-green-500 bg-green-500 data-[state=checked]:bg-green-500' : 'border-gold'
+                        )}
+                      />
+                      <div className="flex-1 min-w-0 space-y-1">
+                        {/* Arabic text */}
+                        <p className={cn(
+                          'font-arabic text-right text-base leading-relaxed',
+                          isVerseValidated ? 'text-green-700 dark:text-green-300' : 'text-foreground'
+                        )}>
+                          {verseData?.text_arabic || `﴿ ${verseNum} ﴾`}
+                        </p>
+                        {/* Transliteration */}
+                        {verseData?.transliteration && (
+                          <p className="text-xs text-primary/80 italic">
+                            {verseData.transliteration}
+                          </p>
+                        )}
+                        {/* French translation */}
+                        {verseData?.translation_fr && (
+                          <p className="text-xs text-muted-foreground">
+                            {verseData.translation_fr}
+                          </p>
+                        )}
+                        {/* Verse number indicator */}
+                        <p className={cn(
+                          'text-[10px] font-medium',
+                          isVerseValidated ? 'text-green-500' : 'text-muted-foreground/60'
+                        )}>
+                          Verset {verseNum}
+                        </p>
+                      </div>
+                      {isVerseValidated && <Check className="h-4 w-4 text-green-500 shrink-0 mt-1" />}
+                    </div>
+                  );
+                })
+              )}
             </div>
           </div>
 

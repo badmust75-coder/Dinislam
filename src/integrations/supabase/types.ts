@@ -536,6 +536,44 @@ export type Database = {
           },
         ]
       }
+      sourate_validation_requests: {
+        Row: {
+          created_at: string
+          id: string
+          reviewed_at: string | null
+          reviewed_by: string | null
+          sourate_id: number
+          status: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          sourate_id: number
+          status?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          sourate_id?: number
+          status?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sourate_validation_requests_sourate_id_fkey"
+            columns: ["sourate_id"]
+            isOneToOne: false
+            referencedRelation: "sourates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sourates: {
         Row: {
           audio_url: string | null

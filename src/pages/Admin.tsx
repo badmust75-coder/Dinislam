@@ -12,6 +12,7 @@ import AdminRamadanManager from '@/components/admin/AdminRamadanManager';
 import AdminMessaging from '@/components/admin/AdminMessaging';
 import AdminNouraniaContent from '@/components/admin/AdminNouraniaContent';
 import AdminSourateContent from '@/components/admin/AdminSourateContent';
+import AdminSourateValidations from '@/components/admin/AdminSourateValidations';
 import { 
   Users, 
   GraduationCap, 
@@ -22,11 +23,12 @@ import {
   BookMarked, 
   Hand,
   Settings,
-  Mail
+  Mail,
+  ClipboardCheck
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
-type ViewType = 'dashboard' | 'users' | 'students' | 'ramadan' | 'ramadan-manage' | 'nourania' | 'nourania-manage' | 'alphabet' | 'invocations' | 'sourates' | 'sourates-manage' | 'prayer' | 'messages';
+type ViewType = 'dashboard' | 'users' | 'students' | 'ramadan' | 'ramadan-manage' | 'nourania' | 'nourania-manage' | 'alphabet' | 'invocations' | 'sourates' | 'sourates-manage' | 'sourates-validations' | 'prayer' | 'messages';
 
 const Admin = () => {
   const { isAdmin, loading } = useAuth();
@@ -133,6 +135,16 @@ const Admin = () => {
             ← Retour
           </Button>
           <AdminSourateContent />
+        </div>
+      </AppLayout>
+    );
+  }
+
+  if (currentView === 'sourates-validations') {
+    return (
+      <AppLayout title="Tableau de bord">
+        <div className="p-4">
+          <AdminSourateValidations onBack={handleBack} />
         </div>
       </AppLayout>
     );
@@ -281,6 +293,15 @@ const Admin = () => {
             >
               <Settings className="h-4 w-4 mr-2" />
               Gérer contenu & débloquer
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full"
+              onClick={() => setCurrentView('sourates-validations')}
+            >
+              <ClipboardCheck className="h-4 w-4 mr-2" />
+              Validations en attente
             </Button>
           </div>
 
