@@ -253,11 +253,18 @@ const RamadanDayDialog = ({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto p-0">
-        {/* Header */}
-        <div className="p-4 bg-gradient-to-r from-primary to-royal-dark text-primary-foreground rounded-t-lg">
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto p-0 [&>button]:hidden">
+        {/* Header with big close button */}
+        <div className="p-4 bg-gradient-to-r from-primary to-royal-dark text-primary-foreground rounded-t-lg relative">
+          <button
+            onClick={() => handleOpenChange(false)}
+            className="absolute top-3 right-3 z-10 w-10 h-10 flex items-center justify-center rounded-full bg-red-500 hover:bg-red-600 text-white text-xl font-bold shadow-lg transition-all hover:scale-110"
+            aria-label="Fermer"
+          >
+            ✕
+          </button>
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-3 text-primary-foreground">
+            <DialogTitle className="flex items-center gap-3 text-primary-foreground pr-12">
               <div className="w-10 h-10 rounded-full bg-gold/20 flex items-center justify-center">
                 <span className="font-bold">{dayNumber}</span>
               </div>
@@ -265,11 +272,6 @@ const RamadanDayDialog = ({
                 <div className="font-bold">Jour {dayNumber}</div>
                 {theme && <p className="text-sm opacity-80 font-normal">{theme}</p>}
               </div>
-              {theme && (
-                <Badge variant="outline" className="ml-auto border-white/30 text-white text-xs">
-                  {theme}
-                </Badge>
-              )}
             </DialogTitle>
           </DialogHeader>
         </div>
@@ -300,7 +302,7 @@ const RamadanDayDialog = ({
               </div>
             </div>
           ) : quizCompleted ? (
-            <div className="text-center py-8 space-y-3">
+            <div className="text-center py-6 space-y-3">
               <div className="w-16 h-16 mx-auto rounded-full bg-green-500/20 flex items-center justify-center">
                 <Check className="h-8 w-8 text-green-500" />
               </div>
@@ -322,6 +324,19 @@ const RamadanDayDialog = ({
                     </div>
                   ))}
                 </div>
+              )}
+              {sortedQuizzes.length > 0 && (
+                <Button
+                  onClick={() => {
+                    resetState();
+                    setStep('quiz');
+                  }}
+                  variant="outline"
+                  className="mt-3"
+                >
+                  <RotateCcw className="h-4 w-4 mr-2" />
+                  Refaire le quiz (entraînement)
+                </Button>
               )}
             </div>
           ) : step === 'video' ? (

@@ -1110,6 +1110,33 @@ export type Database = {
           },
         ]
       }
+      user_ramadan_fasting: {
+        Row: {
+          created_at: string
+          day_number: number
+          has_fasted: boolean
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          day_number: number
+          has_fasted?: boolean
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          day_number?: number
+          has_fasted?: boolean
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_ramadan_progress: {
         Row: {
           created_at: string

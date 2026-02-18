@@ -10,6 +10,7 @@ import { toast } from 'sonner';
 import { useConfetti } from '@/hooks/useConfetti';
 import UnlockConfirmDialog from '@/components/ramadan/UnlockConfirmDialog';
 import RamadanDayDialog from '@/components/ramadan/RamadanDayDialog';
+import FastingTracker from '@/components/ramadan/FastingTracker';
 
 interface RamadanDay {
   id: number;
@@ -198,6 +199,14 @@ const Ramadan = () => {
     const isUnlocked = isDayUnlocked(day.day_number);
     const hasContent = dayHasContent(day);
     const waiting = isWaitingForTime(day.day_number);
+    const progress = getDayProgress(day.id);
+    const isCompleted = progress?.quiz_completed;
+
+    // Completed days always open directly for review
+    if (isCompleted && hasContent) {
+      setOpenDay(day);
+      return;
+    }
 
     if (day.day_number === 1 && !settings?.start_enabled) {
       toast.error('Le calendrier n\'est pas encore ouvert. Patience !');
@@ -257,6 +266,9 @@ const Ramadan = () => {
           <p className="text-muted-foreground">30 Jours de Spiritualité</p>
         </div>
 
+        {/* Fasting Tracker */}
+        <FastingTracker />
+
         {/* Progress Card */}
         <div className="module-card rounded-2xl p-4 space-y-3 animate-fade-in bg-gradient-to-br from-primary/5 to-gold/5">
           <div className="flex items-center justify-between">
@@ -279,7 +291,7 @@ const Ramadan = () => {
             const isLocked = notStarted || (!isUnlocked && !waiting);
 
             const getDayBg = (dayNum: number) => {
-              if (isCompleted) return 'bg-gradient-to-br from-green-500 to-green-600 text-white shadow-md';
+              if (isCompleted) return 'bg-gradient-to-br from-green-500 to-green-600 text-white shadow-md hover:scale-105 cursor-pointer';
               if (waiting) return 'bg-gradient-to-br from-orange-400 to-orange-500 text-white cursor-wait';
               if (dayNum <= 10) return 'bg-[hsl(140,40%,88%)] text-[hsl(140,30%,35%)]';
               if (dayNum <= 20) return 'bg-gradient-to-br from-[hsl(140,40%,88%)] to-[hsl(50,60%,85%)] text-[hsl(45,40%,30%)]';
