@@ -19,6 +19,7 @@ import AdminRegistrationValidations from '@/components/admin/AdminRegistrationVa
 import AdminNouraniaValidations from '@/components/admin/AdminNouraniaValidations';
 import AdminDynamicCardDialog from '@/components/admin/AdminDynamicCardDialog';
 import AdminDynamicCardContent from '@/components/admin/AdminDynamicCardContent';
+import AdminRamadanQuizTracking from '@/components/admin/AdminRamadanQuizTracking';
 import ConfirmDeleteDialog from '@/components/ui/confirm-delete-dialog';
 import { 
   Users, GraduationCap, Moon, Sparkles, BookOpen, MessageSquare, 
@@ -58,7 +59,7 @@ const ICON_MAP: Record<string, LucideIcon> = {
   FileText, List, Video, BookOpen, Star, Heart, Bell, Calendar, Image, Music,
 };
 
-type ViewType = 'dashboard' | 'users' | 'students' | 'ramadan' | 'ramadan-manage' | 'nourania' | 'nourania-manage' | 'nourania-validations' | 'alphabet' | 'alphabet-manage' | 'invocations' | 'invocations-manage' | 'sourates' | 'sourates-manage' | 'sourates-validations' | 'registration-validations' | 'prayer' | 'messages' | 'dynamic-card-content';
+type ViewType = 'dashboard' | 'users' | 'students' | 'ramadan' | 'ramadan-manage' | 'ramadan-quiz-tracking' | 'nourania' | 'nourania-manage' | 'nourania-validations' | 'alphabet' | 'alphabet-manage' | 'invocations' | 'invocations-manage' | 'sourates' | 'sourates-manage' | 'sourates-validations' | 'registration-validations' | 'prayer' | 'messages' | 'dynamic-card-content';
 
 interface CardItem {
   id: string;
@@ -340,6 +341,7 @@ const Admin = () => {
   if (currentView === 'users') return <AppLayout title="Tableau de bord"><div className="p-4"><AdminUsersList onBack={handleBack} /></div></AppLayout>;
   if (currentView === 'students') return <AppLayout title="Tableau de bord"><div className="p-4"><AdminStudentDetails onBack={handleBack} /></div></AppLayout>;
   if (currentView === 'ramadan-manage') return <AppLayout title="Tableau de bord"><div className="p-4"><AdminRamadanManager onBack={handleBack} /></div></AppLayout>;
+  if (currentView === 'ramadan-quiz-tracking') return <AppLayout title="Tableau de bord"><div className="p-4"><AdminRamadanQuizTracking onBack={handleBack} /></div></AppLayout>;
   if (currentView === 'nourania-manage') return <AppLayout title="Tableau de bord"><div className="p-4"><Button variant="ghost" onClick={handleBack} className="mb-4">← Retour</Button><AdminNouraniaContent /></div></AppLayout>;
   if (currentView === 'sourates-manage') return <AppLayout title="Tableau de bord"><div className="p-4"><Button variant="ghost" onClick={handleBack} className="mb-4">← Retour</Button><AdminSourateContent /></div></AppLayout>;
   if (currentView === 'alphabet-manage') return <AppLayout title="Tableau de bord"><div className="p-4"><Button variant="ghost" onClick={handleBack} className="mb-4">← Retour</Button><AdminAlphabetContent /></div></AppLayout>;
@@ -467,6 +469,11 @@ const Admin = () => {
                               {card.manageView && (
                                 <DropdownMenuItem onClick={() => setCurrentView(card.manageView!)}>
                                   <Settings className="h-4 w-4 mr-2" /> Gérer le contenu
+                                </DropdownMenuItem>
+                              )}
+                              {card.key === 'ramadan' && (
+                                <DropdownMenuItem onClick={() => setCurrentView('ramadan-quiz-tracking')}>
+                                  <ClipboardCheck className="h-4 w-4 mr-2" /> Suivi des quiz
                                 </DropdownMenuItem>
                               )}
                             </DropdownMenuContent>

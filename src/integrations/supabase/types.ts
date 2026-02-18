@@ -571,22 +571,28 @@ export type Database = {
       }
       quiz_responses: {
         Row: {
+          attempt_number: number
           created_at: string
           id: string
+          is_correct: boolean
           quiz_id: string
           selected_option: number
           user_id: string
         }
         Insert: {
+          attempt_number?: number
           created_at?: string
           id?: string
+          is_correct?: boolean
           quiz_id: string
           selected_option: number
           user_id: string
         }
         Update: {
+          attempt_number?: number
           created_at?: string
           id?: string
+          is_correct?: boolean
           quiz_id?: string
           selected_option?: number
           user_id?: string
@@ -671,25 +677,31 @@ export type Database = {
           correct_option: number | null
           created_at: string
           day_id: number
+          explanation: string | null
           id: string
           options: Json
           question: string
+          question_order: number
         }
         Insert: {
           correct_option?: number | null
           created_at?: string
           day_id: number
+          explanation?: string | null
           id?: string
           options?: Json
           question: string
+          question_order?: number
         }
         Update: {
           correct_option?: number | null
           created_at?: string
           day_id?: number
+          explanation?: string | null
           id?: string
           options?: Json
           question?: string
+          question_order?: number
         }
         Relationships: [
           {

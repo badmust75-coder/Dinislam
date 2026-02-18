@@ -33,6 +33,8 @@ interface Quiz {
   question: string;
   options: string[];
   correct_option: number | null;
+  explanation: string | null;
+  question_order: number;
 }
 
 interface UserProgress {
@@ -77,7 +79,7 @@ const Ramadan = () => {
   const { data: quizzes = [] } = useQuery({
     queryKey: ['ramadan-quizzes'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('ramadan_quizzes').select('*');
+      const { data, error } = await supabase.from('ramadan_quizzes').select('*').order('question_order');
       if (error) throw error;
       return data.map(q => ({
         ...q,
@@ -183,12 +185,10 @@ const Ramadan = () => {
   });
 
   const saveQuizResponseMutation = useMutation({
-    mutationFn: async ({ quizId, selectedOption }: { quizId: string; selectedOption: number }) => {
+    mutationFn: async ({ quizId, selectedOption, attemptNumber, isCorrect }: { quizId: string; selectedOption: number; attemptNumber: number; isCorrect: boolean }) => {
       if (!user?.id) throw new Error('Non connecté');
-      const existing = quizResponses.find(r => r.quiz_id === quizId);
-      if (existing) return;
       const { error } = await supabase.from('quiz_responses')
-        .insert({ user_id: user.id, quiz_id: quizId, selected_option: selectedOption });
+        .insert({ user_id: user.id, quiz_id: quizId, selected_option: selectedOption, attempt_number: attemptNumber, is_correct: isCorrect });
       if (error) throw error;
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['ramadan-quiz-responses'] }),
@@ -364,7 +364,7 @@ const Ramadan = () => {
             videoWatched={!!getDayProgress(openDay.id)?.video_watched}
             onMarkVideoWatched={() => markProgressMutation.mutate({ dayId: openDay.id, field: 'video_watched' })}
             onSubmitQuiz={handleQuizSubmit}
-            onSaveQuizResponse={(quizId, selectedOption) => saveQuizResponseMutation.mutate({ quizId, selectedOption })}
+            onSaveQuizResponse={(quizId, selectedOption, attemptNumber, isCorrect) => saveQuizResponseMutation.mutate({ quizId, selectedOption, attemptNumber, isCorrect })}
           />
         )}
 

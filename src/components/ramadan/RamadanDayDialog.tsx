@@ -4,8 +4,9 @@ import { Button } from '@/components/ui/button';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Check, ChevronRight, SkipForward, RotateCcw, Pause, Play } from 'lucide-react';
+import { Check, ChevronRight, SkipForward, RotateCcw, Pause, Play, Star, Trophy } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useConfetti } from '@/hooks/useConfetti';
 
 interface Quiz {
   id: string;
@@ -13,6 +14,8 @@ interface Quiz {
   question: string;
   options: string[];
   correct_option: number | null;
+  explanation?: string | null;
+  question_order?: number;
 }
 
 interface DayVideo {
@@ -27,17 +30,17 @@ interface RamadanDayDialogProps {
   onOpenChange: (open: boolean) => void;
   dayNumber: number;
   theme: string | null;
-  videoUrl: string | null; // legacy single video
-  videos: DayVideo[];     // new multi-video list
+  videoUrl: string | null;
+  videos: DayVideo[];
   quizzes: Quiz[];
   quizCompleted: boolean;
   videoWatched: boolean;
   onMarkVideoWatched: () => void;
   onSubmitQuiz: (allCorrect: boolean, wrongCount: number) => void;
-  onSaveQuizResponse: (quizId: string, selectedOption: number) => void;
+  onSaveQuizResponse: (quizId: string, selectedOption: number, attemptNumber: number, isCorrect: boolean) => void;
 }
 
-type Step = 'video' | 'quiz';
+type Step = 'video' | 'quiz' | 'perfect';
 
 const RamadanDayDialog = ({
   open,
@@ -57,15 +60,22 @@ const RamadanDayDialog = ({
   const [currentVideoIdx, setCurrentVideoIdx] = useState(0);
   const [currentQuestionIdx, setCurrentQuestionIdx] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
-  const [answerResult, setAnswerResult] = useState<boolean | null>(null);
+  const [attemptCount, setAttemptCount] = useState(0); // 0 = not attempted, 1 = first attempt done, 2 = second attempt done
+  const [answerResult, setAnswerResult] = useState<'correct' | 'wrong-first' | 'wrong-final' | 'correct-second' | null>(null);
+  const [showExplanation, setShowExplanation] = useState(false);
   const [correctCount, setCorrectCount] = useState(0);
   const [wrongCount, setWrongCount] = useState(0);
   const [answeredCount, setAnsweredCount] = useState(0);
+  const [allFirstAttempt, setAllFirstAttempt] = useState(true); // Track perfect score
   const [isPlaying, setIsPlaying] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const quizRef = useRef<HTMLDivElement>(null);
+  const autoAdvanceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const { fireConfetti, fireSuccess } = useConfetti();
 
-  // Determine video playlist: prefer new multi-video list, fallback to legacy
+  // Sort quizzes by question_order
+  const sortedQuizzes = [...quizzes].sort((a, b) => (a.question_order ?? 0) - (b.question_order ?? 0));
+
   const playlist: DayVideo[] = videos.length > 0
     ? videos
     : videoUrl
@@ -74,39 +84,46 @@ const RamadanDayDialog = ({
 
   const currentVideo = playlist[currentVideoIdx] ?? null;
   const totalVideos = playlist.length;
-  const totalQuestions = quizzes.length;
-  const currentQuiz = quizzes[currentQuestionIdx];
+  const totalQuestions = sortedQuizzes.length;
+  const currentQuiz = sortedQuizzes[currentQuestionIdx];
 
   const resetState = () => {
     setStep('video');
     setCurrentVideoIdx(0);
     setCurrentQuestionIdx(0);
     setSelectedAnswer(null);
+    setAttemptCount(0);
     setAnswerResult(null);
+    setShowExplanation(false);
     setCorrectCount(0);
     setWrongCount(0);
     setAnsweredCount(0);
+    setAllFirstAttempt(true);
     setIsPlaying(false);
+    if (autoAdvanceTimerRef.current) clearTimeout(autoAdvanceTimerRef.current);
   };
+
+  // Cleanup timer on unmount
+  useEffect(() => {
+    return () => {
+      if (autoAdvanceTimerRef.current) clearTimeout(autoAdvanceTimerRef.current);
+    };
+  }, []);
 
   const handleOpenChange = (isOpen: boolean) => {
     if (!isOpen) resetState();
     onOpenChange(isOpen);
   };
 
-  // Auto-play next video in playlist, or transition to quiz at end
   const handleVideoEnded = () => {
     if (!videoWatched) onMarkVideoWatched();
     if (currentVideoIdx < totalVideos - 1) {
-      // Move to next video — autoplay triggers via useEffect
       setCurrentVideoIdx(prev => prev + 1);
     } else {
-      // Last video ended → auto-transition to quiz
       goToQuiz();
     }
   };
 
-  // When video index changes, auto-play the new video
   useEffect(() => {
     if (step === 'video' && videoRef.current && currentVideoIdx > 0) {
       videoRef.current.play().catch(() => {});
@@ -116,7 +133,6 @@ const RamadanDayDialog = ({
 
   const goToQuiz = () => {
     setStep('quiz');
-    // Scroll quiz section into view smoothly
     setTimeout(() => {
       quizRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }, 100);
@@ -153,39 +169,84 @@ const RamadanDayDialog = ({
   const handleVideoPlay = () => setIsPlaying(true);
   const handleVideoPause = () => setIsPlaying(false);
 
+  const advanceToNextQuestion = () => {
+    const newAnswered = answeredCount + 1;
+    setAnsweredCount(newAnswered);
+
+    if (newAnswered >= totalQuestions) {
+      // Quiz finished
+      const allCorrect = wrongCount === 0;
+      if (allCorrect && allFirstAttempt) {
+        // Perfect score! Show special screen
+        setStep('perfect');
+        fireConfetti();
+        setTimeout(() => fireConfetti(), 500);
+      }
+      onSubmitQuiz(allCorrect, wrongCount);
+    } else {
+      // Move to next question
+      setCurrentQuestionIdx(prev => prev + 1);
+      setSelectedAnswer(null);
+      setAttemptCount(0);
+      setAnswerResult(null);
+      setShowExplanation(false);
+    }
+  };
+
   const handleValidateAnswer = () => {
     if (selectedAnswer === null || !currentQuiz) return;
 
     const isCorrect = selectedAnswer === currentQuiz.correct_option;
-    setAnswerResult(isCorrect);
-    onSaveQuizResponse(currentQuiz.id, selectedAnswer);
+    const currentAttempt = attemptCount + 1;
+    setAttemptCount(currentAttempt);
 
-    const newCorrect = correctCount + (isCorrect ? 1 : 0);
-    const newWrong = wrongCount + (isCorrect ? 0 : 1);
-    const newAnswered = answeredCount + 1;
+    if (isCorrect) {
+      // Correct answer
+      if (currentAttempt === 1) {
+        setAnswerResult('correct');
+        setCorrectCount(prev => prev + 1);
+      } else {
+        setAnswerResult('correct-second');
+        setCorrectCount(prev => prev + 1);
+        setAllFirstAttempt(false);
+      }
+      onSaveQuizResponse(currentQuiz.id, selectedAnswer, currentAttempt, true);
+      setShowExplanation(true);
 
-    setCorrectCount(newCorrect);
-    setWrongCount(newWrong);
-    setAnsweredCount(newAnswered);
-
-    setTimeout(() => {
-      if (newAnswered >= totalQuestions) {
-        const allCorrect = newWrong === 0;
-        onSubmitQuiz(allCorrect, newWrong);
-        if (!allCorrect) {
-          setCurrentQuestionIdx(0);
+      // Auto-advance after 4 seconds
+      autoAdvanceTimerRef.current = setTimeout(() => {
+        advanceToNextQuestion();
+      }, 4000);
+    } else {
+      // Wrong answer
+      if (currentAttempt === 1) {
+        // First wrong attempt - allow retry
+        setAnswerResult('wrong-first');
+        onSaveQuizResponse(currentQuiz.id, selectedAnswer, 1, false);
+        // Reset selection for second attempt after a moment
+        setTimeout(() => {
           setSelectedAnswer(null);
           setAnswerResult(null);
-          setCorrectCount(0);
-          setWrongCount(0);
-          setAnsweredCount(0);
-        }
+        }, 1500);
       } else {
-        setCurrentQuestionIdx(prev => prev + 1);
-        setSelectedAnswer(null);
-        setAnswerResult(null);
+        // Second wrong attempt - show correct answer and explanation
+        setAnswerResult('wrong-final');
+        setWrongCount(prev => prev + 1);
+        setAllFirstAttempt(false);
+        onSaveQuizResponse(currentQuiz.id, selectedAnswer, 2, false);
+        setShowExplanation(true);
+
+        // Auto-advance after 4 seconds
+        autoAdvanceTimerRef.current = setTimeout(() => {
+          advanceToNextQuestion();
+        }, 4000);
       }
-    }, 1500);
+    }
+  };
+
+  const handleContinue = () => {
+    if (autoAdvanceTimerRef.current) clearTimeout(autoAdvanceTimerRef.current);
+    advanceToNextQuestion();
   };
 
   if (!open) return null;
@@ -214,8 +275,31 @@ const RamadanDayDialog = ({
         </div>
 
         <div className="p-4">
-          {/* Quiz already completed */}
-          {quizCompleted ? (
+          {/* Perfect score screen */}
+          {step === 'perfect' ? (
+            <div className="text-center py-8 space-y-4 animate-fade-in">
+              <div className="relative inline-block">
+                <div className="w-20 h-20 mx-auto rounded-full bg-gradient-to-br from-gold to-yellow-400 flex items-center justify-center animate-scale-in">
+                  <Trophy className="h-10 w-10 text-white" />
+                </div>
+                <Star className="absolute -top-2 -right-2 h-8 w-8 text-gold fill-gold animate-scale-in" />
+              </div>
+              <h3 className="text-xl font-bold text-foreground">
+                Allahouma barik ! 🌟🏆
+              </h3>
+              <p className="text-lg font-semibold text-gold">
+                Quel talent ! Sans-Faute parfait !
+              </p>
+              <p className="text-sm text-muted-foreground">
+                Toutes les réponses correctes dès le premier coup !
+              </p>
+              <div className="flex items-center justify-center gap-1">
+                {[...Array(5)].map((_, i) => (
+                  <Star key={i} className="h-5 w-5 text-gold fill-gold" />
+                ))}
+              </div>
+            </div>
+          ) : quizCompleted ? (
             <div className="text-center py-8 space-y-3">
               <div className="w-16 h-16 mx-auto rounded-full bg-green-500/20 flex items-center justify-center">
                 <Check className="h-8 w-8 text-green-500" />
@@ -245,7 +329,6 @@ const RamadanDayDialog = ({
             <div className="space-y-4">
               {playlist.length > 0 && currentVideo ? (
                 <>
-                  {/* Playlist indicator */}
                   {totalVideos > 1 && (
                     <div className="flex items-center justify-between text-sm text-muted-foreground">
                       <span>Vidéo {currentVideoIdx + 1} / {totalVideos}</span>
@@ -275,56 +358,30 @@ const RamadanDayDialog = ({
                       onPlay={handleVideoPlay}
                       onPause={handleVideoPause}
                     />
-                    {/* Custom overlay controls */}
                     <div className="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-black/70 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-2">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-white hover:bg-white/20"
-                        onClick={() => handleSeek(-10)}
-                      >
+                      <Button variant="ghost" size="icon" className="h-8 w-8 text-white hover:bg-white/20" onClick={() => handleSeek(-10)}>
                         <RotateCcw className="h-4 w-4" />
                       </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-9 w-9 text-white hover:bg-white/20"
-                        onClick={handlePlayPause}
-                      >
+                      <Button variant="ghost" size="icon" className="h-9 w-9 text-white hover:bg-white/20" onClick={handlePlayPause}>
                         {isPlaying ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5" fill="currentColor" />}
                       </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-white hover:bg-white/20"
-                        onClick={() => handleSeek(10)}
-                      >
+                      <Button variant="ghost" size="icon" className="h-8 w-8 text-white hover:bg-white/20" onClick={() => handleSeek(10)}>
                         <SkipForward className="h-4 w-4" />
                       </Button>
                       <span className="text-white text-xs ml-1">
-                        {currentVideoIdx < totalVideos - 1
-                          ? `Vidéo ${currentVideoIdx + 1}/${totalVideos}`
-                          : 'Dernière vidéo'}
+                        {currentVideoIdx < totalVideos - 1 ? `Vidéo ${currentVideoIdx + 1}/${totalVideos}` : 'Dernière vidéo'}
                       </span>
                     </div>
                   </div>
 
                   <div className="flex gap-2">
                     {currentVideoIdx < totalVideos - 1 && (
-                      <Button
-                        onClick={handleSkipToNextVideo}
-                        variant="outline"
-                        className="flex-1"
-                      >
+                      <Button onClick={handleSkipToNextVideo} variant="outline" className="flex-1">
                         <ChevronRight className="h-4 w-4 mr-2" />
                         Vidéo suivante
                       </Button>
                     )}
-                    <Button
-                      onClick={handleSkipToQuiz}
-                      variant="outline"
-                      className="flex-1"
-                    >
+                    <Button onClick={handleSkipToQuiz} variant="outline" className="flex-1">
                       <ChevronRight className="h-4 w-4 mr-2" />
                       Passer au quiz
                     </Button>
@@ -340,7 +397,7 @@ const RamadanDayDialog = ({
               )}
             </div>
           ) : (
-            /* Quiz step — one question at a time */
+            /* Quiz step — one question at a time with second chance */
             <div ref={quizRef} className="space-y-4">
               {currentQuiz && (
                 <>
@@ -348,7 +405,7 @@ const RamadanDayDialog = ({
                   <div className="flex items-center justify-between text-sm text-muted-foreground">
                     <span>Question {currentQuestionIdx + 1}/{totalQuestions}</span>
                     <div className="flex gap-1">
-                      {quizzes.map((_, idx) => (
+                      {sortedQuizzes.map((_, idx) => (
                         <div
                           key={idx}
                           className={cn(
@@ -366,53 +423,111 @@ const RamadanDayDialog = ({
                       {currentQuiz.question}
                     </h4>
 
+                    {/* "Oups" message for first wrong attempt */}
+                    {answerResult === 'wrong-first' && (
+                      <div className="text-center py-2 px-3 rounded-lg bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 animate-fade-in">
+                        <p className="text-sm font-medium text-orange-600 dark:text-orange-400">
+                          Oups, essaie encore ! 😊
+                        </p>
+                        <p className="text-xs text-orange-500 dark:text-orange-300 mt-1">
+                          Deuxième et dernière tentative...
+                        </p>
+                      </div>
+                    )}
+
                     <RadioGroup
                       value={selectedAnswer !== null ? selectedAnswer.toString() : ''}
                       onValueChange={(val) => {
-                        if (answerResult === null) {
+                        if (!showExplanation && answerResult !== 'wrong-first') {
                           setSelectedAnswer(parseInt(val));
                         }
                       }}
                     >
-                      {currentQuiz.options.map((option, optIdx) => (
-                        <div
-                          key={optIdx}
-                          className={cn(
-                            'flex items-center space-x-3 p-2.5 rounded-lg border transition-colors',
-                            answerResult !== null && optIdx === currentQuiz.correct_option && 'border-green-500 bg-green-50',
-                            answerResult === false && selectedAnswer === optIdx && optIdx !== currentQuiz.correct_option && 'border-destructive bg-destructive/10',
-                            answerResult === null && 'hover:bg-muted/50'
-                          )}
-                        >
-                          <RadioGroupItem
-                            value={optIdx.toString()}
-                            id={`current-q-opt${optIdx}`}
-                            disabled={answerResult !== null}
-                          />
-                          <Label
-                            htmlFor={`current-q-opt${optIdx}`}
+                      {currentQuiz.options.map((option, optIdx) => {
+                        const isCorrectOption = optIdx === currentQuiz.correct_option;
+                        const showCorrect = showExplanation && isCorrectOption;
+                        const showWrong = showExplanation && selectedAnswer === optIdx && !isCorrectOption;
+                        const showWrongFinal = answerResult === 'wrong-final' && selectedAnswer === optIdx && !isCorrectOption;
+
+                        return (
+                          <div
+                            key={optIdx}
                             className={cn(
-                              'flex-1 cursor-pointer text-sm',
-                              answerResult !== null && optIdx === currentQuiz.correct_option && 'text-green-700 font-medium',
-                              answerResult === false && selectedAnswer === optIdx && optIdx !== currentQuiz.correct_option && 'text-destructive'
+                              'flex items-center space-x-3 p-2.5 rounded-lg border transition-colors',
+                              showCorrect && 'border-green-500 bg-green-50 dark:bg-green-900/20',
+                              (showWrong || showWrongFinal) && 'border-destructive bg-destructive/10',
+                              !showExplanation && answerResult !== 'wrong-first' && 'hover:bg-muted/50'
                             )}
                           >
-                            {option}
-                            {answerResult !== null && optIdx === currentQuiz.correct_option && ' ✓'}
-                          </Label>
-                        </div>
-                      ))}
+                            <RadioGroupItem
+                              value={optIdx.toString()}
+                              id={`q${currentQuestionIdx}-opt${optIdx}`}
+                              disabled={showExplanation || answerResult === 'wrong-first'}
+                            />
+                            <Label
+                              htmlFor={`q${currentQuestionIdx}-opt${optIdx}`}
+                              className={cn(
+                                'flex-1 cursor-pointer text-sm',
+                                showCorrect && 'text-green-700 dark:text-green-400 font-medium',
+                                (showWrong || showWrongFinal) && 'text-destructive'
+                              )}
+                            >
+                              {option}
+                              {showCorrect && ' ✓'}
+                            </Label>
+                          </div>
+                        );
+                      })}
                     </RadioGroup>
                   </div>
 
-                  {answerResult === null && (
+                  {/* Explanation block */}
+                  {showExplanation && (
+                    <div className="animate-fade-in space-y-3">
+                      {/* Result message */}
+                      {(answerResult === 'correct' || answerResult === 'correct-second') && (
+                        <div className="p-3 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800">
+                          <p className="text-sm font-medium text-green-600 dark:text-green-400">
+                            {answerResult === 'correct' ? '✅ Bonne réponse du premier coup !' : '✅ Bonne réponse à la deuxième tentative !'}
+                          </p>
+                        </div>
+                      )}
+                      {answerResult === 'wrong-final' && (
+                        <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/30">
+                          <p className="text-sm font-medium text-destructive">
+                            ❌ Réponse incorrecte. La bonne réponse est indiquée en vert.
+                          </p>
+                        </div>
+                      )}
+
+                      {/* Explanation text */}
+                      {currentQuiz.explanation && (
+                        <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
+                          <p className="text-xs font-semibold text-blue-600 dark:text-blue-400 mb-1">📖 Explication :</p>
+                          <p className="text-sm text-blue-700 dark:text-blue-300">{currentQuiz.explanation}</p>
+                        </div>
+                      )}
+
+                      {/* Continue button */}
+                      <Button
+                        onClick={handleContinue}
+                        className="w-full bg-gradient-to-r from-primary to-royal-dark"
+                      >
+                        <ChevronRight className="h-4 w-4 mr-2" />
+                        {currentQuestionIdx < totalQuestions - 1 ? 'Question suivante' : 'Terminer le quiz'}
+                      </Button>
+                    </div>
+                  )}
+
+                  {/* Validate button (only when no explanation shown and not in wrong-first state) */}
+                  {!showExplanation && answerResult !== 'wrong-first' && (
                     <Button
                       onClick={handleValidateAnswer}
                       disabled={selectedAnswer === null}
                       className="w-full bg-gradient-to-r from-primary to-royal-dark"
                     >
                       <Check className="h-4 w-4 mr-2" />
-                      Valider
+                      Valider{attemptCount === 1 ? ' (2ème tentative)' : ''}
                     </Button>
                   )}
                 </>

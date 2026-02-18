@@ -16,6 +16,23 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import ConfirmDeleteDialog from '@/components/ui/confirm-delete-dialog';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 interface AdminRamadanManagerProps {
   onBack: () => void;
@@ -27,6 +44,8 @@ interface Quiz {
   question: string;
   options: string[];
   correct_option: number | null;
+  explanation: string | null;
+  question_order: number;
 }
 
 interface DayVideo {
@@ -41,6 +60,7 @@ interface QuestionForm {
   question: string;
   options: string[];
   correctOption: number;
+  explanation: string;
   existingId?: string;
 }
 
@@ -48,7 +68,101 @@ const emptyQuestion = (): QuestionForm => ({
   question: '',
   options: ['', '', '', ''],
   correctOption: 0,
+  explanation: '',
 });
+
+// Sortable question component
+const SortableQuestionCard = ({
+  qf,
+  qIdx,
+  updateQuestion,
+  updateQuestionOption,
+  removeQuestion,
+}: {
+  qf: QuestionForm;
+  qIdx: number;
+  updateQuestion: (idx: number, field: keyof QuestionForm, value: unknown) => void;
+  updateQuestionOption: (qIdx: number, optIdx: number, value: string) => void;
+  removeQuestion: (idx: number) => void;
+}) => {
+  const id = qf.existingId || `new-${qIdx}`;
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    zIndex: isDragging ? 50 : undefined,
+  };
+
+  return (
+    <div ref={setNodeRef} style={style} className="space-y-2 p-3 rounded-lg border bg-muted/30">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <button
+            {...attributes}
+            {...listeners}
+            className="cursor-grab active:cursor-grabbing p-1 rounded hover:bg-muted"
+            type="button"
+          >
+            <GripVertical className="h-4 w-4 text-muted-foreground" />
+          </button>
+          <Label className="text-sm font-medium">Question {qIdx + 1}</Label>
+        </div>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-6 w-6 text-destructive"
+          onClick={() => removeQuestion(qIdx)}
+        >
+          <Trash2 className="h-3 w-3" />
+        </Button>
+      </div>
+      <Textarea
+        value={qf.question}
+        onChange={(e) => updateQuestion(qIdx, 'question', e.target.value)}
+        placeholder={`Entrez la question ${qIdx + 1}...`}
+        rows={2}
+      />
+      <div className="space-y-1.5">
+        {qf.options.map((opt, optIdx) => (
+          <div key={optIdx} className="flex items-center gap-2">
+            <input
+              type="radio"
+              name={`correct-q${qIdx}`}
+              checked={qf.correctOption === optIdx}
+              onChange={() => updateQuestion(qIdx, 'correctOption', optIdx)}
+              className="h-3.5 w-3.5 accent-green-500"
+            />
+            <Input
+              value={opt}
+              onChange={(e) => updateQuestionOption(qIdx, optIdx, e.target.value)}
+              placeholder={`Option ${optIdx + 1}`}
+              className={`h-8 text-sm ${qf.correctOption === optIdx ? 'border-green-500' : ''}`}
+            />
+          </div>
+        ))}
+      </div>
+      <div className="pt-2 border-t">
+        <Label className="text-xs text-muted-foreground">📝 Explication / Correction</Label>
+        <Textarea
+          value={qf.explanation}
+          onChange={(e) => updateQuestion(qIdx, 'explanation', e.target.value)}
+          placeholder="Ex: Adam est le premier homme sur terre, il a été créé d'argile..."
+          rows={2}
+          className="mt-1 text-sm"
+        />
+      </div>
+    </div>
+  );
+};
 
 const AdminRamadanManager = ({ onBack }: AdminRamadanManagerProps) => {
   const { toast } = useToast();
@@ -63,6 +177,12 @@ const AdminRamadanManager = ({ onBack }: AdminRamadanManagerProps) => {
 
   // Unlimited questions
   const [questions, setQuestions] = useState<QuestionForm[]>([emptyQuestion()]);
+
+  // DnD sensors
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
 
   // Fetch ramadan settings
   const { data: settings } = useQuery({
@@ -101,7 +221,7 @@ const AdminRamadanManager = ({ onBack }: AdminRamadanManagerProps) => {
   const { data: quizzes = [] } = useQuery({
     queryKey: ['admin-ramadan-quizzes'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('ramadan_quizzes').select('*');
+      const { data, error } = await supabase.from('ramadan_quizzes').select('*').order('question_order');
       if (error) throw error;
       return data.map(q => ({
         ...q,
@@ -110,7 +230,7 @@ const AdminRamadanManager = ({ onBack }: AdminRamadanManagerProps) => {
     },
   });
 
-  const getQuizzesForDay = (dayId: number) => quizzes.filter(q => q.day_id === dayId);
+  const getQuizzesForDay = (dayId: number) => quizzes.filter(q => q.day_id === dayId).sort((a, b) => a.question_order - b.question_order);
   const getVideosForDay = (dayId: number) => dayVideos.filter(v => v.day_id === dayId);
   const currentDayData = days.find(d => d.id === selectedDay);
   const currentQuizzes = selectedDay ? getQuizzesForDay(selectedDay) : [];
@@ -189,10 +309,11 @@ const AdminRamadanManager = ({ onBack }: AdminRamadanManagerProps) => {
     },
   });
 
-  // Save quiz questions (unlimited)
+  // Save quiz questions (unlimited, with explanation and order)
   const saveQuizzesMutation = useMutation({
     mutationFn: async ({ dayId, questionForms }: { dayId: number; questionForms: QuestionForm[] }) => {
-      for (const qf of questionForms) {
+      for (let i = 0; i < questionForms.length; i++) {
+        const qf = questionForms[i];
         if (!qf.question.trim()) continue;
 
         if (qf.existingId) {
@@ -202,6 +323,8 @@ const AdminRamadanManager = ({ onBack }: AdminRamadanManagerProps) => {
               question: qf.question,
               options: qf.options as unknown as string,
               correct_option: qf.correctOption,
+              explanation: qf.explanation || null,
+              question_order: i,
             })
             .eq('id', qf.existingId);
           if (error) throw error;
@@ -213,6 +336,8 @@ const AdminRamadanManager = ({ onBack }: AdminRamadanManagerProps) => {
               question: qf.question,
               options: qf.options as unknown as string,
               correct_option: qf.correctOption,
+              explanation: qf.explanation || null,
+              question_order: i,
             });
           if (error) throw error;
         }
@@ -317,7 +442,6 @@ const AdminRamadanManager = ({ onBack }: AdminRamadanManagerProps) => {
     if (file && selectedDay) {
       uploadVideoMutation.mutate({ dayId: selectedDay, file });
     }
-    // Reset so same file can be re-selected
     e.target.value = '';
   };
 
@@ -331,6 +455,7 @@ const AdminRamadanManager = ({ onBack }: AdminRamadanManagerProps) => {
         question: q.question,
         options: q.options,
         correctOption: q.correct_option ?? 0,
+        explanation: q.explanation || '',
         existingId: q.id,
       })));
     } else {
@@ -369,6 +494,18 @@ const AdminRamadanManager = ({ onBack }: AdminRamadanManagerProps) => {
     }
   };
 
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+
+    setQuestions(prev => {
+      const oldIndex = prev.findIndex(q => (q.existingId || `new-${prev.indexOf(q)}`) === active.id);
+      const newIndex = prev.findIndex(q => (q.existingId || `new-${prev.indexOf(q)}`) === over.id);
+      if (oldIndex === -1 || newIndex === -1) return prev;
+      return arrayMove(prev, oldIndex, newIndex);
+    });
+  };
+
   const handleSaveQuiz = () => {
     if (!selectedDay) return;
     const filledQuestions = questions.filter(q => q.question.trim());
@@ -390,6 +527,8 @@ const AdminRamadanManager = ({ onBack }: AdminRamadanManagerProps) => {
     setSavingTheme(true);
     saveThemeMutation.mutate({ dayId: selectedDay, theme: themeInput });
   };
+
+  const questionIds = questions.map((q, idx) => q.existingId || `new-${idx}`);
 
   return (
     <div className="space-y-4">
@@ -474,7 +613,6 @@ const AdminRamadanManager = ({ onBack }: AdminRamadanManagerProps) => {
       <div className="grid grid-cols-5 sm:grid-cols-6 md:grid-cols-10 gap-2">
         {days.map((day) => {
           const videoCount = getVideosForDay(day.id).length;
-          // Also check legacy video_url
           const hasVideo = videoCount > 0 || !!day.video_url;
           const quizCount = getQuizzesForDay(day.id).length;
 
@@ -617,7 +755,7 @@ const AdminRamadanManager = ({ onBack }: AdminRamadanManagerProps) => {
               </Button>
             </div>
 
-            {/* Quiz Section: Unlimited */}
+            {/* Quiz Section: Unlimited with DnD */}
             <div className="space-y-4 border-t pt-4">
               <div className="flex items-center justify-between">
                 <Label className="flex items-center gap-2 text-base font-semibold">
@@ -637,46 +775,22 @@ const AdminRamadanManager = ({ onBack }: AdminRamadanManagerProps) => {
                 )}
               </div>
 
-              {questions.map((qf, qIdx) => (
-                <div key={qIdx} className="space-y-2 p-3 rounded-lg border bg-muted/30">
-                  <div className="flex items-center justify-between">
-                    <Label className="text-sm font-medium">Question {qIdx + 1}</Label>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-6 w-6 text-destructive"
-                      onClick={() => removeQuestion(qIdx)}
-                    >
-                      <Trash2 className="h-3 w-3" />
-                    </Button>
-                  </div>
-                  <Textarea
-                    value={qf.question}
-                    onChange={(e) => updateQuestion(qIdx, 'question', e.target.value)}
-                    placeholder={`Entrez la question ${qIdx + 1}...`}
-                    rows={2}
-                  />
-                  <div className="space-y-1.5">
-                    {qf.options.map((opt, optIdx) => (
-                      <div key={optIdx} className="flex items-center gap-2">
-                        <input
-                          type="radio"
-                          name={`correct-q${qIdx}`}
-                          checked={qf.correctOption === optIdx}
-                          onChange={() => updateQuestion(qIdx, 'correctOption', optIdx)}
-                          className="h-3.5 w-3.5 accent-green-500"
-                        />
-                        <Input
-                          value={opt}
-                          onChange={(e) => updateQuestionOption(qIdx, optIdx, e.target.value)}
-                          placeholder={`Option ${optIdx + 1}`}
-                          className={`h-8 text-sm ${qf.correctOption === optIdx ? 'border-green-500' : ''}`}
-                        />
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
+              <p className="text-xs text-muted-foreground">↕️ Glissez-déposez les questions pour réorganiser l'ordre</p>
+
+              <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                <SortableContext items={questionIds} strategy={verticalListSortingStrategy}>
+                  {questions.map((qf, qIdx) => (
+                    <SortableQuestionCard
+                      key={qf.existingId || `new-${qIdx}`}
+                      qf={qf}
+                      qIdx={qIdx}
+                      updateQuestion={updateQuestion}
+                      updateQuestionOption={updateQuestionOption}
+                      removeQuestion={removeQuestion}
+                    />
+                  ))}
+                </SortableContext>
+              </DndContext>
 
               {/* Add question button */}
               <Button
