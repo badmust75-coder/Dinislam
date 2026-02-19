@@ -41,7 +41,7 @@ interface RamadanDayDialogProps {
   onSaveQuizResponse: (quizId: string, selectedOption: number, attemptNumber: number, isCorrect: boolean) => void;
 }
 
-type Step = 'video' | 'quiz' | 'perfect';
+type Step = 'video' | 'quiz' | 'perfect' | 'failed';
 
 const RamadanDayDialog = ({
   open,
@@ -177,13 +177,22 @@ const RamadanDayDialog = ({
     if (newAnswered >= totalQuestions) {
       // Quiz finished
       const allCorrect = wrongCount === 0;
-      if (allCorrect && allFirstAttempt) {
-        // Perfect score! Show special screen
+      const newWrongCount = wrongCount; // capture current value
+
+      if (newWrongCount >= 3) {
+        // Échec : trop d'erreurs, bloque la validation
+        setStep('failed');
+        onSubmitQuiz(false, newWrongCount); // ne valide pas
+      } else if (allCorrect && allFirstAttempt) {
+        // Perfect score!
         setStep('perfect');
         fireConfetti();
         setTimeout(() => fireConfetti(), 500);
+        onSubmitQuiz(true, 0);
+      } else {
+        // Réussi (< 3 erreurs mais pas parfait)
+        onSubmitQuiz(allCorrect, newWrongCount);
       }
-      onSubmitQuiz(allCorrect, wrongCount);
     } else {
       // Move to next question
       setCurrentQuestionIdx(prev => prev + 1);
@@ -287,8 +296,35 @@ const RamadanDayDialog = ({
         </div>
 
         <div className="p-4">
-          {/* Perfect score screen */}
-          {step === 'perfect' ? (
+          {/* Failed screen (≥3 errors) */}
+          {step === 'failed' ? (
+            <div className="text-center py-8 space-y-4 animate-fade-in">
+              <div className="w-20 h-20 mx-auto rounded-full bg-destructive/10 border-2 border-destructive/30 flex items-center justify-center">
+                <RotateCcw className="h-10 w-10 text-destructive" />
+              </div>
+              <h3 className="text-xl font-bold text-foreground">
+                Oups ! 😕
+              </h3>
+              <p className="text-sm font-medium text-destructive">
+                Tu as fait {wrongCount} erreur{wrongCount > 1 ? 's' : ''} lors de ce quiz.
+              </p>
+              <div className="p-4 rounded-xl bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 text-left space-y-2">
+                <p className="text-sm text-orange-700 dark:text-orange-300 text-center">
+                  Oups ! Tu as fait un peu trop d'erreurs. Revois bien la vidéo et refais le quiz pour valider ta journée !
+                </p>
+              </div>
+              <Button
+                onClick={() => {
+                  resetState();
+                  setStep('video');
+                }}
+                className="w-full bg-gradient-to-r from-primary to-royal-dark"
+              >
+                <RotateCcw className="h-4 w-4 mr-2" />
+                Revoir la vidéo et recommencer
+              </Button>
+            </div>
+          ) : step === 'perfect' ? (
             <div className="text-center py-8 space-y-4 animate-fade-in">
               <div className="relative inline-block">
                 <div className="w-20 h-20 mx-auto rounded-full bg-gradient-to-br from-gold to-yellow-400 flex items-center justify-center animate-scale-in">

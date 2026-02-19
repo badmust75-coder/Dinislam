@@ -246,13 +246,17 @@ const Ramadan = () => {
 
   const handleQuizSubmit = (allCorrect: boolean, wrongCount: number) => {
     if (!openDay) return;
-    if (allCorrect) {
+    // Seuil : moins de 3 erreurs requis pour valider
+    if (wrongCount < 3) {
       fireSuccess();
       markProgressMutation.mutate({ dayId: openDay.id, field: 'quiz_completed' });
-      toast.success('Bravo ! Toutes les réponses sont correctes ! 🎉');
-    } else {
-      toast.error(`${wrongCount} réponse(s) incorrecte(s). Réessayez !`);
+      if (allCorrect) {
+        toast.success('Bravo ! Toutes les réponses sont correctes ! 🎉');
+      } else {
+        toast.success(`Bien joué ! ${wrongCount} erreur(s) seulement, journée validée ! 👍`);
+      }
     }
+    // Si wrongCount >= 3, le dialog affiche déjà l'écran d'échec — pas de toast ici
   };
 
   return (
