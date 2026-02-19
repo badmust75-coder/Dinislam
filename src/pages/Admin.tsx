@@ -25,14 +25,17 @@ import AdminDynamicCardContent from '@/components/admin/AdminDynamicCardContent'
 import AdminRamadanQuizTracking from '@/components/admin/AdminRamadanQuizTracking';
 import AdminHomework from '@/components/admin/AdminHomework';
 import AdminAttendance from '@/components/admin/AdminAttendance';
-import AdminModules from '@/components/admin/AdminModules';
 import ConfirmDeleteDialog from '@/components/ui/confirm-delete-dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { 
   Users, GraduationCap, Moon, Sparkles, BookOpen, MessageSquare, 
   BookMarked, Hand, Settings, Mail, ClipboardCheck, UserCheck,
   Plus, GripVertical, MoreVertical, Pencil, Trash2,
   FileText, List, Video, Star, Heart, Bell, Calendar, Image, Music,
-  ClipboardList, LayoutGrid
+  ClipboardList, Eye, EyeOff
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -66,7 +69,7 @@ const ICON_MAP: Record<string, LucideIcon> = {
   FileText, List, Video, BookOpen, Star, Heart, Bell, Calendar, Image, Music,
 };
 
-type ViewType = 'dashboard' | 'users' | 'students' | 'ramadan' | 'ramadan-manage' | 'ramadan-quiz-tracking' | 'nourania' | 'nourania-manage' | 'nourania-validations' | 'alphabet' | 'alphabet-manage' | 'invocations' | 'invocations-manage' | 'sourates' | 'sourates-manage' | 'sourates-validations' | 'registration-validations' | 'prayer' | 'messages' | 'dynamic-card-content' | 'homework' | 'attendance' | 'modules' | 'allah-names-manage' | 'generic-module-manage';
+type ViewType = 'dashboard' | 'users' | 'students' | 'ramadan' | 'ramadan-manage' | 'ramadan-quiz-tracking' | 'nourania' | 'nourania-manage' | 'nourania-validations' | 'alphabet' | 'alphabet-manage' | 'invocations' | 'invocations-manage' | 'sourates' | 'sourates-manage' | 'sourates-validations' | 'registration-validations' | 'prayer' | 'messages' | 'dynamic-card-content' | 'homework' | 'attendance' | 'allah-names-manage' | 'generic-module-manage';
 
 interface GenericModuleManageState { moduleId: string; moduleTitle: string; }
 
@@ -103,7 +106,7 @@ const SortableCard = ({ id, children }: { id: string; children: React.ReactNode 
 };
 
 const Admin = () => {
-  const { isAdmin, loading } = useAuth();
+  const { isAdmin, loading, user } = useAuth();
   const queryClient = useQueryClient();
   const [currentView, setCurrentView] = useState<ViewType>('dashboard');
   const [pendingCount, setPendingCount] = useState(0);
@@ -115,6 +118,24 @@ const Admin = () => {
   const [cardToDelete, setCardToDelete] = useState<string | null>(null);
   const [selectedDynamicCard, setSelectedDynamicCard] = useState<any>(null);
   const [genericModuleManage, setGenericModuleManage] = useState<GenericModuleManageState | null>(null);
+  
+  // Learning modules state (formerly AdminModules)
+  const [lmDialogOpen, setLmDialogOpen] = useState(false);
+  const [lmEditingModule, setLmEditingModule] = useState<any>(null);
+  const [lmDeleteOpen, setLmDeleteOpen] = useState(false);
+  const [lmModuleToDelete, setLmModuleToDelete] = useState<string | null>(null);
+  const [lmContentDialogOpen, setLmContentDialogOpen] = useState(false);
+  const [lmSelectedModule, setLmSelectedModule] = useState<any>(null);
+  const [lmContentTitle, setLmContentTitle] = useState('');
+  const [lmContentUrl, setLmContentUrl] = useState('');
+  const [lmUploading, setLmUploading] = useState(false);
+  const [lmContentToDelete, setLmContentToDelete] = useState<string | null>(null);
+  const [lmTitle, setLmTitle] = useState('');
+  const [lmTitleArabic, setLmTitleArabic] = useState('');
+  const [lmDescription, setLmDescription] = useState('');
+  const [lmIcon, setLmIcon] = useState('BookOpen');
+  const [lmGradient, setLmGradient] = useState('from-primary via-royal-dark to-primary');
+  const [lmIconColor, setLmIconColor] = useState('text-gold');
 
   // Fetch pending validation count
   const { data: pendingValidations } = useQuery({
@@ -176,6 +197,25 @@ const Admin = () => {
         .from('admin_card_order')
         .select('*')
         .order('display_order');
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  // Fetch learning modules (formerly in AdminModules)
+  const { data: learningModules } = useQuery({
+    queryKey: ['admin-learning-modules'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('learning_modules').select('*').order('display_order');
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  const { data: moduleContents } = useQuery({
+    queryKey: ['admin-all-module-contents'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('module_content').select('*').order('display_order');
       if (error) throw error;
       return data || [];
     },
@@ -246,7 +286,6 @@ const Admin = () => {
     { key: 'prayer', title: 'Prière', icon: Hand, value: `${stats?.prayer || 0} catégories`, subtitle: 'Progression par élève', color: 'text-rose-600 dark:text-rose-400', bgColor: 'bg-rose-100 dark:bg-rose-900/30', cardBgColor: 'bg-rose-50/50 dark:bg-rose-950/20 border-rose-200 dark:border-rose-800', view: 'prayer' as ViewType },
     { key: 'homework', title: 'Cahier de texte', icon: ClipboardList, value: 'Gérer', subtitle: 'Devoirs par élève', color: 'text-lime-600 dark:text-lime-400', bgColor: 'bg-lime-100 dark:bg-lime-900/30', cardBgColor: 'bg-lime-50/50 dark:bg-lime-950/20 border-lime-200 dark:border-lime-800', view: 'homework' as ViewType },
     { key: 'attendance', title: 'Registre de Présence', icon: ClipboardCheck, value: 'Gérer', subtitle: 'Suivi par séance', color: 'text-cyan-600 dark:text-cyan-400', bgColor: 'bg-cyan-100 dark:bg-cyan-900/30', cardBgColor: 'bg-cyan-50/50 dark:bg-cyan-950/20 border-cyan-200 dark:border-cyan-800', view: 'attendance' as ViewType },
-    { key: 'modules', title: "Modules d'accueil", icon: LayoutGrid, value: 'Gérer', subtitle: 'Ordre, images, contenu', color: 'text-violet-600 dark:text-violet-400', bgColor: 'bg-violet-100 dark:bg-violet-900/30', cardBgColor: 'bg-violet-50/50 dark:bg-violet-950/20 border-violet-200 dark:border-violet-800', view: 'modules' as ViewType },
   ], [stats]);
 
   // Combine static + dynamic cards with ordering
@@ -333,6 +372,166 @@ const Admin = () => {
     onError: (err: any) => toast.error('Erreur: ' + err.message),
   });
 
+  // Learning modules mutations
+  const lmSaveMutation = useMutation({
+    mutationFn: async (moduleData: any) => {
+      if (lmEditingModule) {
+        const { error } = await supabase.from('learning_modules').update(moduleData).eq('id', lmEditingModule.id);
+        if (error) throw error;
+      } else {
+        const maxOrder = learningModules?.reduce((max: number, m: any) => Math.max(max, m.display_order), -1) ?? -1;
+        const { error } = await supabase.from('learning_modules').insert({ ...moduleData, display_order: maxOrder + 1 });
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-learning-modules'] });
+      queryClient.invalidateQueries({ queryKey: ['learning-modules'] });
+      toast.success(lmEditingModule ? 'Module modifié' : 'Module ajouté');
+      setLmDialogOpen(false);
+      setLmEditingModule(null);
+    },
+    onError: (err: any) => toast.error(err.message),
+  });
+
+  const lmDeleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('learning_modules').delete().eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-learning-modules'] });
+      queryClient.invalidateQueries({ queryKey: ['learning-modules'] });
+      toast.success('Module supprimé');
+      setLmDeleteOpen(false);
+      setLmModuleToDelete(null);
+    },
+    onError: (err: any) => toast.error(err.message),
+  });
+
+  const lmReorderMutation = useMutation({
+    mutationFn: async (newModules: any[]) => {
+      for (let i = 0; i < newModules.length; i++) {
+        await supabase.from('learning_modules').update({ display_order: i }).eq('id', newModules[i].id);
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-learning-modules'] });
+      queryClient.invalidateQueries({ queryKey: ['learning-modules'] });
+    },
+  });
+
+  const lmAddContentMutation = useMutation({
+    mutationFn: async (data: { module_id: string; title: string; content_type: string; file_url: string; file_name: string }) => {
+      const existingContents = moduleContents?.filter((c: any) => c.module_id === data.module_id) || [];
+      const maxOrder = existingContents.reduce((max: number, c: any) => Math.max(max, c.display_order), -1);
+      const { error } = await supabase.from('module_content').insert({ ...data, display_order: maxOrder + 1, uploaded_by: user?.id });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-all-module-contents'] });
+      queryClient.invalidateQueries({ queryKey: ['module-content'] });
+      toast.success('Contenu ajouté');
+      setLmContentDialogOpen(false);
+      setLmContentTitle('');
+      setLmContentUrl('');
+    },
+    onError: (err: any) => toast.error(err.message),
+  });
+
+  const lmDeleteContentMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('module_content').delete().eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-all-module-contents'] });
+      queryClient.invalidateQueries({ queryKey: ['module-content'] });
+      toast.success('Contenu supprimé');
+      setLmContentToDelete(null);
+    },
+    onError: (err: any) => toast.error(err.message),
+  });
+
+  const lmToggleActiveMutation = useMutation({
+    mutationFn: async ({ id, is_active }: { id: string; is_active: boolean }) => {
+      const { error } = await supabase.from('learning_modules').update({ is_active }).eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-learning-modules'] });
+      queryClient.invalidateQueries({ queryKey: ['learning-modules'] });
+    },
+  });
+
+  const handleLmDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id || !learningModules) return;
+    const oldIndex = learningModules.findIndex((m: any) => m.id === active.id);
+    const newIndex = learningModules.findIndex((m: any) => m.id === over.id);
+    const newOrder = arrayMove(learningModules, oldIndex, newIndex);
+    lmReorderMutation.mutate(newOrder);
+  };
+
+  const openLmEditDialog = (mod: any) => {
+    setLmEditingModule(mod);
+    setLmTitle(mod.title);
+    setLmTitleArabic(mod.title_arabic);
+    setLmDescription(mod.description || '');
+    setLmIcon(mod.icon);
+    setLmGradient(mod.gradient);
+    setLmIconColor(mod.icon_color);
+    setLmDialogOpen(true);
+  };
+
+  const openLmAddDialog = () => {
+    setLmEditingModule(null);
+    setLmTitle('');
+    setLmTitleArabic('');
+    setLmDescription('');
+    setLmIcon('BookOpen');
+    setLmGradient('from-primary via-royal-dark to-primary');
+    setLmIconColor('text-gold');
+    setLmDialogOpen(true);
+  };
+
+  const handleLmImageUpload = async (moduleId: string, file: File) => {
+    setLmUploading(true);
+    try {
+      const ext = file.name.split('.').pop();
+      const path = `module-images/${moduleId}.${ext}`;
+      const { error: uploadError } = await supabase.storage.from('module-content').upload(path, file, { upsert: true });
+      if (uploadError) throw uploadError;
+      const { data: { publicUrl } } = supabase.storage.from('module-content').getPublicUrl(path);
+      const { error } = await supabase.from('learning_modules').update({ image_url: publicUrl }).eq('id', moduleId);
+      if (error) throw error;
+      queryClient.invalidateQueries({ queryKey: ['admin-learning-modules'] });
+      queryClient.invalidateQueries({ queryKey: ['learning-modules'] });
+      toast.success('Image importée');
+    } catch (err: any) {
+      toast.error(err.message);
+    }
+    setLmUploading(false);
+  };
+
+  const handleLmFileUpload = async (file: File) => {
+    if (!lmSelectedModule) return;
+    setLmUploading(true);
+    try {
+      const path = `${lmSelectedModule.id}/${Date.now()}-${file.name}`;
+      const { error: uploadError } = await supabase.storage.from('module-content').upload(path, file);
+      if (uploadError) throw uploadError;
+      const { data: { publicUrl } } = supabase.storage.from('module-content').getPublicUrl(path);
+      const type = file.type.startsWith('video') ? 'video' : file.type.startsWith('audio') ? 'audio' : file.type.startsWith('image') ? 'image' : 'pdf';
+      lmAddContentMutation.mutate({ module_id: lmSelectedModule.id, title: lmContentTitle || file.name, content_type: type, file_url: publicUrl, file_name: file.name });
+    } catch (err: any) {
+      toast.error(err.message);
+    }
+    setLmUploading(false);
+  };
+
+  const getLmContentsForModule = (moduleId: string) => moduleContents?.filter((c: any) => c.module_id === moduleId) || [];
+
   if (loading) {
     return (
       <AppLayout title="Tableau de bord">
@@ -366,7 +565,6 @@ const Admin = () => {
   if (currentView === 'messages') return <AppLayout title="Tableau de bord"><div className="p-4"><Button variant="ghost" onClick={handleBack} className="mb-4">← Retour</Button><AdminMessaging /></div></AppLayout>;
   if (currentView === 'homework') return <AppLayout title="Tableau de bord"><div className="p-4"><AdminHomework onBack={handleBack} /></div></AppLayout>;
   if (currentView === 'attendance') return <AppLayout title="Tableau de bord"><div className="p-4"><AdminAttendance onBack={handleBack} /></div></AppLayout>;
-  if (currentView === 'modules') return <AppLayout title="Tableau de bord"><div className="p-4"><AdminModules onBack={handleBack} /></div></AppLayout>;
   if (currentView === 'dynamic-card-content' && selectedDynamicCard) return <AppLayout title="Tableau de bord"><div className="p-4"><AdminDynamicCardContent card={selectedDynamicCard} onBack={handleBack} /></div></AppLayout>;
   if (currentView === 'allah-names-manage') return <AppLayout title="Tableau de bord"><div className="p-4"><AdminAllahNamesManager onBack={handleBack} /></div></AppLayout>;
   if (currentView === 'generic-module-manage' && genericModuleManage) return <AppLayout title="Tableau de bord"><div className="p-4"><AdminGenericModuleManager moduleId={genericModuleManage.moduleId} moduleTitle={genericModuleManage.moduleTitle} onBack={handleBack} /></div></AppLayout>;
@@ -564,6 +762,94 @@ const Admin = () => {
           </SortableContext>
         </DndContext>
 
+        {/* Learning Modules Section */}
+        <div className="mt-6">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-xl font-bold text-foreground">Modules d'apprentissage</h2>
+            <Button size="sm" onClick={openLmAddDialog}><Plus className="h-4 w-4 mr-1" /> Ajouter</Button>
+          </div>
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleLmDragEnd}>
+            <SortableContext items={(learningModules || []).map((m: any) => m.id)} strategy={verticalListSortingStrategy}>
+              <div className="space-y-2">
+                {learningModules?.map((mod: any) => {
+                  const LmIcon = ICON_MAP[mod.icon] || BookOpen;
+                  const contents = getLmContentsForModule(mod.id);
+                  return (
+                    <SortableCard key={mod.id} id={mod.id}>
+                      <div className={`rounded-xl border bg-card p-3 ${!mod.is_active ? 'opacity-50' : ''}`}>
+                        <div className="flex items-center gap-3">
+                          <div className="shrink-0">
+                            {mod.image_url ? (
+                              <img src={mod.image_url} className="w-10 h-10 rounded-lg object-cover" alt={mod.title} />
+                            ) : (
+                              <div className={`w-10 h-10 rounded-lg flex items-center justify-center bg-gradient-to-br ${mod.gradient}`}>
+                                <LmIcon className={`h-5 w-5 ${mod.icon_color}`} />
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <p className="font-semibold text-foreground truncate">{mod.title}</p>
+                              {mod.is_builtin && <span className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded">Natif</span>}
+                              {!mod.is_active && <span className="text-[10px] bg-muted text-muted-foreground px-1.5 py-0.5 rounded">Masqué</span>}
+                            </div>
+                            <p className="text-xs text-muted-foreground">{contents.length} contenu(s)</p>
+                          </div>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="sm"><MoreVertical className="h-4 w-4" /></Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => openLmEditDialog(mod)}>
+                                <Pencil className="h-4 w-4 mr-2" /> Modifier
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => { setLmSelectedModule(mod); setLmContentDialogOpen(true); }}>
+                                <Plus className="h-4 w-4 mr-2" /> Ajouter du contenu
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => {
+                                const input = document.createElement('input');
+                                input.type = 'file';
+                                input.accept = 'image/*';
+                                input.onchange = (e) => {
+                                  const file = (e.target as HTMLInputElement).files?.[0];
+                                  if (file) handleLmImageUpload(mod.id, file);
+                                };
+                                input.click();
+                              }}>
+                                <Image className="h-4 w-4 mr-2" /> Importer une image
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => lmToggleActiveMutation.mutate({ id: mod.id, is_active: !mod.is_active })}>
+                                {mod.is_active ? <><EyeOff className="h-4 w-4 mr-2" /> Masquer</> : <><Eye className="h-4 w-4 mr-2" /> Afficher</>}
+                              </DropdownMenuItem>
+                              {!mod.is_builtin && (
+                                <DropdownMenuItem className="text-destructive" onClick={() => { setLmModuleToDelete(mod.id); setLmDeleteOpen(true); }}>
+                                  <Trash2 className="h-4 w-4 mr-2" /> Supprimer
+                                </DropdownMenuItem>
+                              )}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
+                        {contents.length > 0 && (
+                          <div className="mt-2 space-y-1">
+                            {contents.map((c: any) => (
+                              <div key={c.id} className="flex items-center justify-between text-xs py-1 px-2 bg-muted/50 rounded">
+                                <span className="truncate">{c.title} ({c.content_type})</span>
+                                <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => setLmContentToDelete(c.id)}>
+                                  <Trash2 className="h-3 w-3 text-destructive" />
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </SortableCard>
+                  );
+                })}
+              </div>
+            </SortableContext>
+          </DndContext>
+        </div>
+
         {/* Floating add button */}
         <button
           onClick={() => { setEditingCard(null); setCardDialogOpen(true); }}
@@ -576,6 +862,100 @@ const Admin = () => {
           open={cardDialogOpen}
           onOpenChange={(open) => { setCardDialogOpen(open); if (!open) setEditingCard(null); }}
           editCard={editingCard}
+        />
+
+        {/* Learning Module Add/Edit Dialog */}
+        <Dialog open={lmDialogOpen} onOpenChange={setLmDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>{lmEditingModule ? 'Modifier le module' : 'Ajouter un module'}</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <Label>Titre</Label>
+                <Input value={lmTitle} onChange={e => setLmTitle(e.target.value)} placeholder="Nom du module" />
+              </div>
+              <div>
+                <Label>Titre arabe</Label>
+                <Input value={lmTitleArabic} onChange={e => setLmTitleArabic(e.target.value)} placeholder="العنوان" className="font-arabic text-right" dir="rtl" />
+              </div>
+              <div>
+                <Label>Description</Label>
+                <Input value={lmDescription} onChange={e => setLmDescription(e.target.value)} placeholder="Courte description" />
+              </div>
+              <div>
+                <Label>Icône</Label>
+                <Select value={lmIcon} onValueChange={setLmIcon}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {Object.keys(ICON_MAP).map(k => <SelectItem key={k} value={k}>{k}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex gap-2 justify-end">
+                <Button variant="outline" onClick={() => setLmDialogOpen(false)}>Annuler</Button>
+                <Button onClick={() => {
+                  if (!lmTitle.trim()) { toast.error('Le titre est requis'); return; }
+                  lmSaveMutation.mutate({ title: lmTitle, title_arabic: lmTitleArabic, description: lmDescription, icon: lmIcon, gradient: lmGradient, icon_color: lmIconColor });
+                }} disabled={lmSaveMutation.isPending}>
+                  {lmEditingModule ? 'Modifier' : 'Ajouter'}
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Learning Module Content Dialog */}
+        <Dialog open={lmContentDialogOpen} onOpenChange={setLmContentDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Ajouter du contenu — {lmSelectedModule?.title}</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <Label>Titre du contenu</Label>
+                <Input value={lmContentTitle} onChange={e => setLmContentTitle(e.target.value)} placeholder="Titre" />
+              </div>
+              <div>
+                <Label>URL</Label>
+                <Input value={lmContentUrl} onChange={e => setLmContentUrl(e.target.value)} placeholder="https://..." />
+              </div>
+              <div>
+                <Label>Ou importer un fichier</Label>
+                <Input type="file" accept=".pdf,.mp4,.mp3,.jpg,.png" onChange={e => {
+                  const file = e.target.files?.[0];
+                  if (file) handleLmFileUpload(file);
+                }} disabled={lmUploading} />
+              </div>
+              {lmContentUrl && (
+                <div className="flex gap-2 justify-end">
+                  <Button variant="outline" onClick={() => setLmContentDialogOpen(false)}>Annuler</Button>
+                  <Button onClick={() => {
+                    if (!lmSelectedModule) return;
+                    const ext = lmContentUrl.split('.').pop()?.toLowerCase() || '';
+                    const type = ['mp4','webm'].includes(ext) ? 'video' : ['mp3','wav'].includes(ext) ? 'audio' : ['jpg','png','gif'].includes(ext) ? 'image' : 'pdf';
+                    lmAddContentMutation.mutate({ module_id: lmSelectedModule.id, title: lmContentTitle || lmContentUrl, content_type: type, file_url: lmContentUrl, file_name: lmContentUrl.split('/').pop() || lmContentUrl });
+                  }} disabled={lmAddContentMutation.isPending}>Ajouter</Button>
+                </div>
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
+        
+        <ConfirmDeleteDialog
+          open={lmDeleteOpen}
+          onOpenChange={setLmDeleteOpen}
+          onConfirm={() => lmModuleToDelete && lmDeleteMutation.mutate(lmModuleToDelete)}
+          title="Supprimer le module"
+          description="Voulez-vous vraiment supprimer ce module et tout son contenu ?"
+        />
+
+        <ConfirmDeleteDialog
+          open={!!lmContentToDelete}
+          onOpenChange={(open) => { if (!open) setLmContentToDelete(null); }}
+          onConfirm={() => lmContentToDelete && lmDeleteContentMutation.mutate(lmContentToDelete)}
+          title="Supprimer le contenu"
+          description="Voulez-vous vraiment supprimer ce contenu ?"
         />
 
         <ConfirmDeleteDialog
