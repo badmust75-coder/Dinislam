@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import AppLayout from '@/components/layout/AppLayout';
 import { Card, CardContent } from '@/components/ui/card';
-import { Loader2, Trophy, Medal, Star, Crown } from 'lucide-react';
+import { Loader2, Star, Crown } from 'lucide-react';
 import { useEffect } from 'react';
 import { cn } from '@/lib/utils';
 
@@ -15,44 +15,37 @@ interface RankingEntry {
 }
 
 const getRankDisplay = (rank: number) => {
-  switch (rank) {
-    case 1:
-      return (
-        <div className="flex items-center justify-center w-10 h-10 rounded-full bg-gradient-to-br from-yellow-300 to-yellow-600 shadow-lg">
-          <Trophy className="h-5 w-5 text-yellow-900" />
-        </div>
-      );
-    case 2:
-      return (
-        <div className="flex items-center justify-center w-10 h-10 rounded-full bg-gradient-to-br from-gray-200 to-gray-400 shadow-md">
-          <Trophy className="h-5 w-5 text-gray-600" />
-        </div>
-      );
-    case 3:
-      return (
-        <div className="flex items-center justify-center w-10 h-10 rounded-full bg-gradient-to-br from-amber-600 to-amber-800 shadow-md">
-          <Trophy className="h-5 w-5 text-amber-200" />
-        </div>
-      );
-    case 4:
-      return (
-        <div className="flex items-center justify-center w-9 h-9 rounded-full bg-gradient-to-br from-yellow-300 to-yellow-500 shadow-sm">
-          <span className="text-xs font-bold text-yellow-900">{rank}</span>
-        </div>
-      );
-    case 5:
-      return (
-        <div className="flex items-center justify-center w-9 h-9 rounded-full bg-gradient-to-br from-gray-200 to-gray-400 shadow-sm">
-          <span className="text-xs font-bold text-gray-700">{rank}</span>
-        </div>
-      );
-    default:
-      return (
-        <div className="flex items-center justify-center w-9 h-9 rounded-full bg-gradient-to-br from-amber-500 to-amber-700 shadow-sm">
-          <span className="text-xs font-bold text-amber-100">{rank}</span>
-        </div>
-      );
+  if (rank <= 3) {
+    // Ranks 1-3: Gold trophy (star-shaped) with rank number inside
+    return (
+      <div className="relative flex items-center justify-center w-10 h-10">
+        <Star className="h-10 w-10 text-yellow-400 fill-yellow-400 drop-shadow-[0_2px_4px_rgba(234,179,8,0.5)]" />
+        <span className="absolute text-[11px] font-extrabold text-yellow-900">{rank}</span>
+      </div>
+    );
   }
+  if (rank === 4) {
+    // Rank 4: Gold medal with number 4
+    return (
+      <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-gradient-to-br from-yellow-300 to-yellow-500 shadow-sm border border-yellow-400">
+        <span className="text-sm font-extrabold text-yellow-900">{rank}</span>
+      </div>
+    );
+  }
+  if (rank === 5) {
+    // Rank 5: Silver medal with number 5
+    return (
+      <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-gradient-to-br from-gray-200 to-gray-400 shadow-sm border border-gray-300">
+        <span className="text-sm font-extrabold text-gray-700">{rank}</span>
+      </div>
+    );
+  }
+  // Rank 6+: Bronze medal with corresponding number
+  return (
+    <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-gradient-to-br from-amber-500 to-amber-700 shadow-sm border border-amber-600">
+      <span className="text-sm font-extrabold text-amber-100">{rank}</span>
+    </div>
+  );
 };
 
 const getRowStyle = (rank: number, isMe: boolean) => {
