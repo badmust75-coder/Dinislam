@@ -5,6 +5,7 @@ import { Moon, BookOpen, Hand, BookMarked, Sparkles, Trophy } from 'lucide-react
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import AppLayout from '@/components/layout/AppLayout';
+import HomeworkCard from '@/components/homework/HomeworkCard';
 import WelcomeNameDialog from '@/components/auth/WelcomeNameDialog';
 import { useUserProgress } from '@/hooks/useUserProgress';
 import { cn } from '@/lib/utils';
@@ -133,6 +134,9 @@ const Index = () => {
               بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ
             </p>
           </div>
+
+          {/* Homework Card */}
+          <HomeworkCard />
 
           {/* Module Cards Grid */}
           <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-5">

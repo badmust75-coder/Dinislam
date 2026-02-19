@@ -192,6 +192,86 @@ export type Database = {
         }
         Relationships: []
       }
+      homework_assignments: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          created_by: string
+          description: string | null
+          id: string
+          lesson_reference: string | null
+          status: string
+          subject: string
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          created_by: string
+          description?: string | null
+          id?: string
+          lesson_reference?: string | null
+          status?: string
+          subject: string
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          id?: string
+          lesson_reference?: string | null
+          status?: string
+          subject?: string
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      homework_submissions: {
+        Row: {
+          assignment_id: string
+          content_type: string
+          created_at: string
+          file_name: string
+          file_url: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          assignment_id: string
+          content_type: string
+          created_at?: string
+          file_name: string
+          file_url: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          assignment_id?: string
+          content_type?: string
+          created_at?: string
+          file_name?: string
+          file_url?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "homework_submissions_assignment_id_fkey"
+            columns: ["assignment_id"]
+            isOneToOne: false
+            referencedRelation: "homework_assignments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       invocation_content: {
         Row: {
           content_type: string
