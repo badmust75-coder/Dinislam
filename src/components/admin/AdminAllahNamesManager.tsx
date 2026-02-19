@@ -1,5 +1,6 @@
 /**
  * AdminAllahNamesManager — Gestion admin des 99 Noms d'Allah
+ * Supports: CRUD, Drag & Drop reorder, image upload, video/audio/PDF per name
  */
 import { useState, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -13,6 +14,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { toast } from 'sonner';
 import {
   GripVertical, Pencil, Trash2, ArrowLeft, Loader2, Image as ImageIcon,
+  Play, Music, FileText, ChevronDown, ChevronUp, Upload,
 } from 'lucide-react';
 import ConfirmDeleteDialog from '@/components/ui/confirm-delete-dialog';
 import {
@@ -43,6 +45,8 @@ const AdminAllahNamesManager = ({ onBack }: Props) => {
   const [formOpen, setFormOpen] = useState(false);
   const [editingName, setEditingName] = useState<any>(null);
   const [deleteId, setDeleteId] = useState<number | null>(null);
+  const [expandedId, setExpandedId] = useState<number | null>(null);
+  const [uploadingMedia, setUploadingMedia] = useState<{ nameId: number; type: string } | null>(null);
 
   const [formNameAr, setFormNameAr] = useState('');
   const [formNameFr, setFormNameFr] = useState('');
@@ -62,6 +66,17 @@ const AdminAllahNamesManager = ({ onBack }: Props) => {
       return data || [];
     },
   });
+
+  const { data: allMedia = [] } = useQuery({
+    queryKey: ['admin-allah-name-media'],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any).from('allah_name_media').select('*');
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  const getNameMedia = (nameId: number) => (allMedia as any[]).filter((m: any) => m.name_id === nameId);
 
   const saveMutation = useMutation({
     mutationFn: async () => {
@@ -105,19 +120,33 @@ const AdminAllahNamesManager = ({ onBack }: Props) => {
     onError: () => toast.error('Erreur lors de la suppression'),
   });
 
+  const deleteMediaMutation = useMutation({
+    mutationFn: async (mediaId: string) => {
+      const { error } = await (supabase as any).from('allah_name_media').delete().eq('id', mediaId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-allah-name-media'] });
+      toast.success('Média supprimé');
+    },
+  });
+
   const reorderMutation = useMutation({
     mutationFn: async (newList: any[]) => {
       for (let i = 0; i < newList.length; i++) {
         await supabase.from('allah_names').update({ display_order: i + 1 }).eq('id', newList[i].id);
       }
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin-allah-names'] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-allah-names'] });
+      queryClient.invalidateQueries({ queryKey: ['allah-names'] });
+    },
   });
 
   const handleUploadImage = useCallback(async (nameId: number, file: File) => {
     try {
       const ext = file.name.split('.').pop();
-      const path = `allah-names/${nameId}.${ext}`;
+      const path = `allah-names/${nameId}-img.${ext}`;
       const { error: upErr } = await supabase.storage.from('module-cards').upload(path, file, { upsert: true });
       if (upErr) throw upErr;
       const { data: urlData } = supabase.storage.from('module-cards').getPublicUrl(path);
@@ -127,6 +156,32 @@ const AdminAllahNamesManager = ({ onBack }: Props) => {
       queryClient.invalidateQueries({ queryKey: ['allah-names'] });
       toast.success('Image mise à jour ✅');
     } catch (e: any) { toast.error(e.message); }
+  }, [queryClient]);
+
+  const handleUploadMedia = useCallback(async (nameId: number, type: 'video' | 'audio' | 'pdf', file: File) => {
+    setUploadingMedia({ nameId, type });
+    try {
+      const ext = file.name.split('.').pop();
+      const path = `allah-names/${nameId}-${type}.${ext}`;
+      const { error: upErr } = await supabase.storage.from('module-cards').upload(path, file, { upsert: true });
+      if (upErr) throw upErr;
+      const { data: urlData } = supabase.storage.from('module-cards').getPublicUrl(path);
+
+      // Delete existing media of this type for this name
+      await (supabase as any).from('allah_name_media').delete().eq('name_id', nameId).eq('media_type', type);
+
+      // Insert new media
+      const { error } = await (supabase as any).from('allah_name_media').insert({
+        name_id: nameId,
+        media_type: type,
+        file_url: urlData.publicUrl,
+        file_name: file.name,
+      });
+      if (error) throw error;
+      queryClient.invalidateQueries({ queryKey: ['admin-allah-name-media'] });
+      toast.success(`${type === 'video' ? 'Vidéo' : type === 'audio' ? 'Audio' : 'PDF'} mis à jour ✅`);
+    } catch (e: any) { toast.error(e.message); }
+    finally { setUploadingMedia(null); }
   }, [queryClient]);
 
   const handleDragEnd = (event: DragEndEvent) => {
@@ -153,6 +208,40 @@ const AdminAllahNamesManager = ({ onBack }: Props) => {
     setFormOpen(true);
   };
 
+  const MediaUploadRow = ({ nameId, type, label, icon: Icon }: { nameId: number; type: 'video' | 'audio' | 'pdf'; label: string; icon: any }) => {
+    const existing = getNameMedia(nameId).find((m: any) => m.media_type === type);
+    const isUploading = uploadingMedia?.nameId === nameId && uploadingMedia?.type === type;
+    return (
+      <div className="flex items-center gap-2 py-1">
+        <Icon className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+        <span className="text-xs text-muted-foreground w-12 shrink-0">{label}</span>
+        {existing ? (
+          <div className="flex-1 flex items-center gap-1 min-w-0">
+            <span className="text-xs text-foreground truncate flex-1">{existing.file_name}</span>
+            <label className="cursor-pointer">
+              <input type="file" accept={type === 'video' ? 'video/*' : type === 'audio' ? 'audio/*' : '.pdf'} className="hidden"
+                onChange={(e) => { const f = e.target.files?.[0]; if (f) handleUploadMedia(nameId, type, f); e.target.value = ''; }}
+              />
+              <span className="text-[10px] text-primary underline">Remplacer</span>
+            </label>
+            <button onClick={() => deleteMediaMutation.mutate(existing.id)} className="text-destructive hover:text-destructive/80">
+              <Trash2 className="h-3 w-3" />
+            </button>
+          </div>
+        ) : (
+          <label className="flex-1 cursor-pointer">
+            <input type="file" accept={type === 'video' ? 'video/*' : type === 'audio' ? 'audio/*' : '.pdf'} className="hidden"
+              onChange={(e) => { const f = e.target.files?.[0]; if (f) handleUploadMedia(nameId, type, f); e.target.value = ''; }}
+            />
+            <span className={`flex items-center gap-1 text-xs ${isUploading ? 'text-muted-foreground' : 'text-primary underline'}`}>
+              {isUploading ? <><Loader2 className="h-3 w-3 animate-spin" /> Envoi…</> : <><Upload className="h-3 w-3" /> Ajouter</>}
+            </span>
+          </label>
+        )}
+      </div>
+    );
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -175,6 +264,7 @@ const AdminAllahNamesManager = ({ onBack }: Props) => {
                   <Card>
                     <CardContent className="p-3">
                       <div className="flex items-center gap-3">
+                        {/* Image with upload overlay */}
                         <div className="relative shrink-0">
                           {name.image_url ? (
                             <img src={name.image_url} alt={name.name_french} className="w-10 h-10 rounded-lg object-contain bg-orange-50" />
@@ -190,6 +280,8 @@ const AdminAllahNamesManager = ({ onBack }: Props) => {
                             <ImageIcon className="h-3.5 w-3.5 text-white" />
                           </label>
                         </div>
+
+                        {/* Name info */}
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
                             <span className="text-xs text-muted-foreground">#{name.display_order}</span>
@@ -197,16 +289,44 @@ const AdminAllahNamesManager = ({ onBack }: Props) => {
                           </div>
                           <p className="text-xs text-muted-foreground">{name.name_french}</p>
                           {name.transliteration && <p className="text-xs text-muted-foreground italic">{name.transliteration}</p>}
+                          {/* Media indicator */}
+                          {getNameMedia(name.id).length > 0 && (
+                            <div className="flex gap-1 mt-0.5">
+                              {getNameMedia(name.id).map((m: any) => (
+                                <span key={m.id} className="text-[9px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary">
+                                  {m.media_type}
+                                </span>
+                              ))}
+                            </div>
+                          )}
                         </div>
+
+                        {/* Actions */}
                         <div className="flex gap-1 shrink-0">
                           <Button variant="outline" size="sm" className="h-8 px-2" onClick={() => openEdit(name)}>
                             <Pencil className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button
+                            variant="outline" size="sm" className="h-8 px-2"
+                            onClick={() => setExpandedId(expandedId === name.id ? null : name.id)}
+                          >
+                            {expandedId === name.id ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
                           </Button>
                           <Button variant="outline" size="sm" className="h-8 px-2 text-destructive hover:text-destructive" onClick={() => setDeleteId(name.id)}>
                             <Trash2 className="h-3.5 w-3.5" />
                           </Button>
                         </div>
                       </div>
+
+                      {/* Expanded media section */}
+                      {expandedId === name.id && (
+                        <div className="mt-3 pt-3 border-t border-border">
+                          <p className="text-xs font-semibold text-muted-foreground mb-2">Médias associés</p>
+                          <MediaUploadRow nameId={name.id} type="video" label="Vidéo" icon={Play} />
+                          <MediaUploadRow nameId={name.id} type="audio" label="Audio" icon={Music} />
+                          <MediaUploadRow nameId={name.id} type="pdf" label="PDF" icon={FileText} />
+                        </div>
+                      )}
                     </CardContent>
                   </Card>
                 </SortableItem>
@@ -216,6 +336,7 @@ const AdminAllahNamesManager = ({ onBack }: Props) => {
         </DndContext>
       )}
 
+      {/* Add/Edit dialog */}
       <Dialog open={formOpen} onOpenChange={(open) => { setFormOpen(open); if (!open) setEditingName(null); }}>
         <DialogContent className="max-w-md">
           <DialogHeader>

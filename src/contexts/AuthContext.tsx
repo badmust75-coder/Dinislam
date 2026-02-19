@@ -106,6 +106,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         ]);
         setIsAdmin(adminStatus);
         setIsApproved(adminStatus ? true : approvalStatus);
+        // Update last_seen on login
+        await (supabase as any).from('profiles').update({ last_seen: new Date().toISOString() }).eq('user_id', session.user.id);
       }
       
       setLoading(false);
