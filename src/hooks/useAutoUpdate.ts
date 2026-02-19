@@ -1,45 +1,55 @@
 import { useEffect, useCallback } from 'react';
 
-const CHECK_INTERVAL = 30000; // Check every 30 seconds
+const CHECK_INTERVAL = 5000; // Check every 5 seconds for near-instant updates
 
 export const useAutoUpdate = () => {
   const checkForUpdates = useCallback(async () => {
     try {
-      // Check service worker for updates
-      if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+      if ('serviceWorker' in navigator) {
         const registration = await navigator.serviceWorker.getRegistration();
         if (registration) {
           await registration.update();
-          
-          // If there's a waiting worker, it means there's an update
+          // If there's a waiting worker, activate it immediately
           if (registration.waiting) {
-            // Tell the waiting service worker to take over
             registration.waiting.postMessage({ type: 'SKIP_WAITING' });
           }
         }
       }
     } catch (error) {
-      console.log('Update check failed:', error);
+      // Silent fail
     }
   }, []);
 
   useEffect(() => {
-    // Initial check
+    // Initial check on mount
     checkForUpdates();
 
-    // Set up periodic checking
+    // Periodic check every 5 seconds
     const intervalId = setInterval(checkForUpdates, CHECK_INTERVAL);
 
-    // Listen for controller change (new SW activated)
+    // Check immediately when user returns to the tab
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        checkForUpdates();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    // Reload page as soon as new SW takes control
+    const handleControllerChange = () => {
+      window.location.reload();
+    };
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.addEventListener('controllerchange', () => {
-        // Reload the page when a new service worker takes control
-        window.location.reload();
-      });
+      navigator.serviceWorker.addEventListener('controllerchange', handleControllerChange);
     }
 
     return () => {
       clearInterval(intervalId);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.removeEventListener('controllerchange', handleControllerChange);
+      }
     };
   }, [checkForUpdates]);
 };
+
