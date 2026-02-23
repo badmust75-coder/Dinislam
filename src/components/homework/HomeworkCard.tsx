@@ -5,7 +5,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { CheckCircle2, Clock, BookOpen, Sparkles, Hand, BookMarked, Moon, ExternalLink, FileText, Video, Music, Upload, Loader2 } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { CheckCircle2, Clock, BookOpen, Sparkles, Hand, BookMarked, Moon, ExternalLink, FileText, Video, Music, Upload, Loader2, Mic, Square, Image as ImageIcon, FolderOpen } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
@@ -22,7 +23,16 @@ const HomeworkCard = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
+  const imageInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const [uploadingId, setUploadingId] = useState<string | null>(null);
+  const [renderDialogId, setRenderDialogId] = useState<string | null>(null);
+
+  // Audio recording state
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingTime, setRecordingTime] = useState(0);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
 
   const { data: profile } = useQuery({
     queryKey: ['my-profile-name', user?.id],
@@ -77,7 +87,6 @@ const HomeworkCard = () => {
         .eq('user_id', user?.id);
       if (error) throw error;
 
-      // Notify admin via push notification
       const assignment = assignments?.find(a => a.id === assignmentId);
       const subjectLabel = assignment ? (SUBJECTS[assignment.subject]?.label || assignment.subject) : '';
       try {
@@ -127,7 +136,6 @@ const HomeworkCard = () => {
       queryClient.invalidateQueries({ queryKey: ['my-homework-submissions'] });
       toast.success('Fichier déposé avec succès ! 📎');
 
-      // Notify admin
       const assignment = assignments?.find(a => a.id === assignmentId);
       const subjectLabel = assignment ? (SUBJECTS[assignment.subject]?.label || assignment.subject) : '';
       try {
@@ -145,7 +153,54 @@ const HomeworkCard = () => {
       toast.error('Erreur: ' + err.message);
     } finally {
       setUploadingId(null);
+      setRenderDialogId(null);
     }
+  };
+
+  const startRecording = async (assignmentId: string) => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = mediaRecorder;
+      audioChunksRef.current = [];
+      setRecordingTime(0);
+
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) audioChunksRef.current.push(e.data);
+      };
+
+      mediaRecorder.onstop = async () => {
+        stream.getTracks().forEach(t => t.stop());
+        if (timerRef.current) clearInterval(timerRef.current);
+
+        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        const audioFile = new File([audioBlob], `audio_${Date.now()}.webm`, { type: 'audio/webm' });
+        await uploadFile(assignmentId, audioFile);
+        setIsRecording(false);
+        setRecordingTime(0);
+      };
+
+      mediaRecorder.start();
+      setIsRecording(true);
+
+      timerRef.current = setInterval(() => {
+        setRecordingTime(prev => prev + 1);
+      }, 1000);
+    } catch (err) {
+      toast.error("Impossible d'accéder au microphone");
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      mediaRecorderRef.current.stop();
+    }
+  };
+
+  const formatTime = (seconds: number) => {
+    const m = Math.floor(seconds / 60).toString().padStart(2, '0');
+    const s = (seconds % 60).toString().padStart(2, '0');
+    return `${m}:${s}`;
   };
 
   const pendingAssignments = assignments?.filter(a => a.status === 'pending') || [];
@@ -163,136 +218,234 @@ const HomeworkCard = () => {
   };
 
   return (
-    <div className="relative bg-card rounded-2xl shadow-card border border-border overflow-hidden animate-fade-in">
-      {/* Notebook spiral effect */}
-      <div className="absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-amber-100 to-amber-50 dark:from-amber-900/20 dark:to-transparent border-r-2 border-dashed border-amber-300 dark:border-amber-700 flex flex-col items-center justify-start pt-4 gap-4">
-        {[...Array(Math.max(3, (pendingAssignments.length + completedAssignments.length)))].map((_, i) => (
-          <div key={i} className="w-4 h-4 rounded-full border-2 border-amber-400 dark:border-amber-600 bg-card" />
-        ))}
-      </div>
-
-      <div className="pl-10 pr-4 py-4 space-y-3">
-        {/* Header */}
-        <div className="flex items-center gap-2">
-          <span className="text-lg">📓</span>
-          <h3 className="font-bold text-foreground text-base">Cahier de texte</h3>
-          {pendingAssignments.length > 0 && (
-            <Badge className="bg-amber-500 text-white text-xs ml-auto">
-              {pendingAssignments.length} à faire
-            </Badge>
-          )}
+    <>
+      <div className="relative bg-card rounded-2xl shadow-card border border-border overflow-hidden animate-fade-in">
+        {/* Notebook spiral effect */}
+        <div className="absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-amber-100 to-amber-50 dark:from-amber-900/20 dark:to-transparent border-r-2 border-dashed border-amber-300 dark:border-amber-700 flex flex-col items-center justify-start pt-4 gap-4">
+          {[...Array(Math.max(3, (pendingAssignments.length + completedAssignments.length)))].map((_, i) => (
+            <div key={i} className="w-4 h-4 rounded-full border-2 border-amber-400 dark:border-amber-600 bg-card" />
+          ))}
         </div>
 
-        {/* Pending assignments */}
-        {pendingAssignments.map(assignment => {
-          const subjectInfo = SUBJECTS[assignment.subject] || SUBJECTS.nourania;
-          const Icon = subjectInfo.icon;
-          const assignmentSubs = submissions?.filter(s => s.assignment_id === assignment.id) || [];
-          const isUploading = uploadingId === assignment.id;
-
-          return (
-            <div key={assignment.id} className="border-l-3 border-primary/50 pl-3 py-2 space-y-2">
-              <div className="flex items-start gap-2">
-                <div className={cn('p-1.5 rounded-lg shrink-0', subjectInfo.bg)}>
-                  <Icon className={cn('h-4 w-4', subjectInfo.color)} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-1.5">
-                    <Badge variant="outline" className="text-[10px] px-1.5 py-0">{subjectInfo.label}</Badge>
-                    <Clock className="h-3 w-3 text-amber-500" />
-                  </div>
-                  <p className="font-semibold text-foreground text-sm mt-0.5">{assignment.title}</p>
-                  {assignment.description && (
-                    <p className="text-xs text-muted-foreground mt-0.5">{assignment.description}</p>
-                  )}
-                </div>
-              </div>
-
-              {/* Action buttons */}
-              <div className="flex flex-wrap gap-1.5">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="h-7 text-xs"
-                  onClick={() => goToLesson(assignment.subject, assignment.lesson_reference)}
-                >
-                  <ExternalLink className="h-3 w-3 mr-1" /> Aller à la leçon
-                </Button>
-
-                {/* File upload buttons */}
-                <input
-                  ref={el => { fileInputRefs.current[assignment.id] = el; }}
-                  type="file"
-                  className="hidden"
-                  accept="*/*"
-                  onChange={e => {
-                    const file = e.target.files?.[0];
-                    if (file) uploadFile(assignment.id, file);
-                    e.target.value = '';
-                  }}
-                />
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="h-7 text-xs"
-                  onClick={() => fileInputRefs.current[assignment.id]?.click()}
-                  disabled={isUploading}
-                >
-                  {isUploading ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Upload className="h-3 w-3 mr-1" />}
-                  Rendre
-                </Button>
-
-                <Button
-                  size="sm"
-                  className="h-7 text-xs bg-green-500 hover:bg-green-600 text-white"
-                  onClick={() => markComplete.mutate(assignment.id)}
-                  disabled={markComplete.isPending}
-                >
-                  <CheckCircle2 className="h-3 w-3 mr-1" /> Valider
-                </Button>
-              </div>
-
-              {/* Submitted files */}
-              {assignmentSubs.length > 0 && (
-                <div className="flex flex-wrap gap-1">
-                  {assignmentSubs.map(sub => (
-                    <a
-                      key={sub.id}
-                      href={sub.file_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 text-[10px] text-primary hover:underline bg-primary/5 rounded px-1.5 py-0.5"
-                    >
-                      {sub.content_type.startsWith('video') ? <Video className="h-3 w-3" /> :
-                       sub.content_type.startsWith('audio') ? <Music className="h-3 w-3" /> :
-                       <FileText className="h-3 w-3" />}
-                      {sub.file_name}
-                    </a>
-                  ))}
-                </div>
-              )}
-            </div>
-          );
-        })}
-
-        {/* Completed assignments (collapsed view) */}
-        {completedAssignments.length > 0 && (
-          <div className="pt-1 border-t border-border">
-            <p className="text-xs text-muted-foreground mb-1">✅ Terminés ({completedAssignments.length})</p>
-            {completedAssignments.map(assignment => {
-              const subjectInfo = SUBJECTS[assignment.subject] || SUBJECTS.nourania;
-              return (
-                <div key={assignment.id} className="flex items-center gap-2 py-1 opacity-60">
-                  <CheckCircle2 className="h-3 w-3 text-green-500" />
-                  <Badge variant="outline" className="text-[10px] px-1.5 py-0">{subjectInfo.label}</Badge>
-                  <span className="text-xs text-muted-foreground line-through">{assignment.title}</span>
-                </div>
-              );
-            })}
+        <div className="pl-10 pr-4 py-4 space-y-3">
+          {/* Header */}
+          <div className="flex items-center gap-2">
+            <span className="text-lg">📓</span>
+            <h3 className="font-bold text-foreground text-base">Cahier de texte</h3>
+            {pendingAssignments.length > 0 && (
+              <Badge className="bg-amber-500 text-white text-xs ml-auto">
+                {pendingAssignments.length} à faire
+              </Badge>
+            )}
           </div>
-        )}
+
+          {/* Pending assignments */}
+          {pendingAssignments.map(assignment => {
+            const subjectInfo = SUBJECTS[assignment.subject] || SUBJECTS.nourania;
+            const Icon = subjectInfo.icon;
+            const assignmentSubs = submissions?.filter(s => s.assignment_id === assignment.id) || [];
+            const isUploading = uploadingId === assignment.id;
+
+            return (
+              <div key={assignment.id} className="border-l-3 border-primary/50 pl-3 py-2 space-y-2">
+                <div className="flex items-start gap-2">
+                  <div className={cn('p-1.5 rounded-lg shrink-0', subjectInfo.bg)}>
+                    <Icon className={cn('h-4 w-4', subjectInfo.color)} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <Badge variant="outline" className="text-[10px] px-1.5 py-0">{subjectInfo.label}</Badge>
+                      <Clock className="h-3 w-3 text-amber-500" />
+                    </div>
+                    <p className="font-semibold text-foreground text-sm mt-0.5">{assignment.title}</p>
+                    {assignment.description && (
+                      <p className="text-xs text-muted-foreground mt-0.5">{assignment.description}</p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Action buttons */}
+                <div className="flex flex-wrap gap-1.5">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 text-xs"
+                    onClick={() => goToLesson(assignment.subject, assignment.lesson_reference)}
+                  >
+                    <ExternalLink className="h-3 w-3 mr-1" /> Aller à la leçon
+                  </Button>
+
+                  {/* Hidden file inputs */}
+                  <input
+                    ref={el => { fileInputRefs.current[assignment.id] = el; }}
+                    type="file"
+                    className="hidden"
+                    accept="*/*"
+                    onChange={e => {
+                      const file = e.target.files?.[0];
+                      if (file) uploadFile(assignment.id, file);
+                      e.target.value = '';
+                    }}
+                  />
+                  <input
+                    ref={el => { imageInputRefs.current[assignment.id] = el; }}
+                    type="file"
+                    className="hidden"
+                    accept="image/*,video/*"
+                    capture="environment"
+                    onChange={e => {
+                      const file = e.target.files?.[0];
+                      if (file) uploadFile(assignment.id, file);
+                      e.target.value = '';
+                    }}
+                  />
+
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 text-xs"
+                    onClick={() => setRenderDialogId(assignment.id)}
+                    disabled={isUploading}
+                  >
+                    {isUploading ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Upload className="h-3 w-3 mr-1" />}
+                    Rendre
+                  </Button>
+
+                  <Button
+                    size="sm"
+                    className="h-7 text-xs bg-green-500 hover:bg-green-600 text-white"
+                    onClick={() => markComplete.mutate(assignment.id)}
+                    disabled={markComplete.isPending}
+                  >
+                    <CheckCircle2 className="h-3 w-3 mr-1" /> Valider
+                  </Button>
+                </div>
+
+                {/* Submitted files */}
+                {assignmentSubs.length > 0 && (
+                  <div className="flex flex-wrap gap-1">
+                    {assignmentSubs.map(sub => (
+                      <a
+                        key={sub.id}
+                        href={sub.file_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-[10px] text-primary hover:underline bg-primary/5 rounded px-1.5 py-0.5"
+                      >
+                        {sub.content_type.startsWith('video') ? <Video className="h-3 w-3" /> :
+                         sub.content_type.startsWith('audio') ? <Music className="h-3 w-3" /> :
+                         <FileText className="h-3 w-3" />}
+                        {sub.file_name}
+                      </a>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+
+          {/* Completed assignments (collapsed view) */}
+          {completedAssignments.length > 0 && (
+            <div className="pt-1 border-t border-border">
+              <p className="text-xs text-muted-foreground mb-1">✅ Terminés ({completedAssignments.length})</p>
+              {completedAssignments.map(assignment => {
+                const subjectInfo = SUBJECTS[assignment.subject] || SUBJECTS.nourania;
+                return (
+                  <div key={assignment.id} className="flex items-center gap-2 py-1 opacity-60">
+                    <CheckCircle2 className="h-3 w-3 text-green-500" />
+                    <Badge variant="outline" className="text-[10px] px-1.5 py-0">{subjectInfo.label}</Badge>
+                    <span className="text-xs text-muted-foreground line-through">{assignment.title}</span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
       </div>
-    </div>
+
+      {/* Render dialog - file type picker */}
+      <Dialog open={!!renderDialogId} onOpenChange={(open) => { if (!open && !isRecording) setRenderDialogId(null); }}>
+        <DialogContent className="max-w-xs rounded-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-center text-base">Rendre un devoir</DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col gap-2">
+            {/* Audio recorder */}
+            {isRecording ? (
+              <Button
+                variant="destructive"
+                className="w-full justify-start gap-3 h-12 text-sm"
+                onClick={stopRecording}
+              >
+                <Square className="h-5 w-5 fill-current" />
+                <span>Arrêter l'enregistrement</span>
+                <span className="ml-auto font-mono text-xs">{formatTime(recordingTime)}</span>
+              </Button>
+            ) : (
+              <Button
+                variant="outline"
+                className="w-full justify-start gap-3 h-12 text-sm"
+                onClick={() => renderDialogId && startRecording(renderDialogId)}
+              >
+                <Mic className="h-5 w-5 text-red-500" />
+                <span>Enregistrer un audio</span>
+              </Button>
+            )}
+
+            {/* Photo library */}
+            <Button
+              variant="outline"
+              className="w-full justify-start gap-3 h-12 text-sm"
+              onClick={() => {
+                if (renderDialogId) {
+                  const input = imageInputRefs.current[renderDialogId];
+                  if (input) {
+                    input.removeAttribute('capture');
+                    input.click();
+                  }
+                }
+              }}
+              disabled={isRecording}
+            >
+              <ImageIcon className="h-5 w-5 text-blue-500" />
+              <span>Photothèque</span>
+            </Button>
+
+            {/* Take photo/video */}
+            <Button
+              variant="outline"
+              className="w-full justify-start gap-3 h-12 text-sm"
+              onClick={() => {
+                if (renderDialogId) {
+                  const input = imageInputRefs.current[renderDialogId];
+                  if (input) {
+                    input.setAttribute('capture', 'environment');
+                    input.click();
+                  }
+                }
+              }}
+              disabled={isRecording}
+            >
+              <Video className="h-5 w-5 text-green-500" />
+              <span>Prendre une photo ou une vidéo</span>
+            </Button>
+
+            {/* Choose file */}
+            <Button
+              variant="outline"
+              className="w-full justify-start gap-3 h-12 text-sm"
+              onClick={() => {
+                if (renderDialogId) fileInputRefs.current[renderDialogId]?.click();
+              }}
+              disabled={isRecording}
+            >
+              <FolderOpen className="h-5 w-5 text-amber-500" />
+              <span>Choisir le fichier</span>
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 };
 
