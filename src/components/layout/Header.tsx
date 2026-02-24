@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Home, LogOut, Mail, Trophy, CalendarCheck } from 'lucide-react';
+import AccountSwitcher from '@/components/auth/AccountSwitcher';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
