@@ -975,6 +975,47 @@ export type Database = {
           },
         ]
       }
+      ramadan_day_activities: {
+        Row: {
+          created_at: string
+          day_id: number
+          file_name: string
+          file_type: string | null
+          file_url: string
+          id: string
+          order_index: number | null
+          type: string
+        }
+        Insert: {
+          created_at?: string
+          day_id: number
+          file_name: string
+          file_type?: string | null
+          file_url: string
+          id?: string
+          order_index?: number | null
+          type: string
+        }
+        Update: {
+          created_at?: string
+          day_id?: number
+          file_name?: string
+          file_type?: string | null
+          file_url?: string
+          id?: string
+          order_index?: number | null
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ramadan_day_activities_day_id_fkey"
+            columns: ["day_id"]
+            isOneToOne: false
+            referencedRelation: "ramadan_days"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ramadan_day_videos: {
         Row: {
           created_at: string

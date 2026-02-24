@@ -4,9 +4,11 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Check, ChevronRight, SkipForward, RotateCcw, Pause, Play, Star, Trophy } from 'lucide-react';
+import { Check, ChevronRight, SkipForward, RotateCcw, Pause, Play, Star, Trophy, FileText, Download, Printer, Volume2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useConfetti } from '@/hooks/useConfetti';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
 
 interface Quiz {
   id: string;
@@ -26,10 +28,21 @@ interface DayVideo {
   display_order: number;
 }
 
+interface DayActivity {
+  id: string;
+  day_id: number;
+  type: string;
+  file_url: string;
+  file_name: string;
+  file_type: string | null;
+  order_index: number | null;
+}
+
 interface RamadanDayDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   dayNumber: number;
+  dayId: number;
   theme: string | null;
   videoUrl: string | null;
   videos: DayVideo[];
@@ -48,6 +61,7 @@ const RamadanDayDialog = ({
   open,
   onOpenChange,
   dayNumber,
+  dayId,
   theme,
   videoUrl,
   videos,
@@ -79,6 +93,21 @@ const RamadanDayDialog = ({
   const autoAdvanceTimerRef = useRef<NodeJS.Timeout | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const { fireConfetti, fireSuccess } = useConfetti();
+
+  // Fetch activities for this day
+  const { data: activities = [] } = useQuery({
+    queryKey: ['ramadan-day-activities', dayId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('ramadan_day_activities')
+        .select('*')
+        .eq('day_id', dayId)
+        .order('order_index');
+      if (error) throw error;
+      return data as DayActivity[];
+    },
+    enabled: open && !!dayId,
+  });
 
   // Web Audio: lazy-init AudioContext on first user interaction
   const getAudioCtx = useCallback(() => {
@@ -562,6 +591,92 @@ const RamadanDayDialog = ({
                   <RotateCcw className="h-4 w-4 mr-2" />
                   Refaire le quiz (entraînement)
                 </Button>
+              )}
+
+              {/* Activité du jour */}
+              {activities.length > 0 && (
+                <div className="mt-6 space-y-3 border-t pt-4">
+                  <h4 className="font-semibold text-foreground text-sm flex items-center gap-2">
+                    <FileText className="h-4 w-4 text-primary" />
+                    Activité du jour
+                  </h4>
+                  <div className="space-y-3">
+                    {activities.map((activity) => {
+                      const isVideo = activity.type === 'video' || activity.file_type?.startsWith('video/');
+                      const isAudio = activity.type === 'audio' || activity.file_type?.startsWith('audio/');
+                      const isPdfOrImage = activity.type === 'document' || activity.file_type?.startsWith('image/') || activity.file_type === 'application/pdf';
+
+                      if (isVideo) {
+                        return (
+                          <div key={activity.id} className="space-y-1">
+                            <p className="text-xs text-muted-foreground">{activity.file_name}</p>
+                            <div className="aspect-video rounded-xl overflow-hidden bg-black">
+                              <video src={activity.file_url} controls className="w-full h-full" />
+                            </div>
+                          </div>
+                        );
+                      }
+
+                      if (isAudio) {
+                        return (
+                          <div key={activity.id} className="p-3 rounded-xl border bg-muted/30 space-y-2">
+                            <div className="flex items-center gap-2">
+                              <Volume2 className="h-4 w-4 text-primary" />
+                              <span className="text-sm font-medium text-foreground truncate">{activity.file_name}</span>
+                            </div>
+                            <audio src={activity.file_url} controls className="w-full" />
+                            <a href={activity.file_url} download={activity.file_name} target="_blank" rel="noopener noreferrer">
+                              <Button variant="outline" size="sm" className="w-full">
+                                <Download className="h-3 w-3 mr-2" />
+                                Télécharger
+                              </Button>
+                            </a>
+                          </div>
+                        );
+                      }
+
+                      // PDF / Image document
+                      return (
+                        <div key={activity.id} className="p-3 rounded-xl border bg-muted/30 space-y-2">
+                          <div className="flex items-center gap-2">
+                            <FileText className="h-4 w-4 text-primary" />
+                            <span className="text-sm font-medium text-foreground truncate">{activity.file_name}</span>
+                          </div>
+                          {activity.file_type?.startsWith('image/') && (
+                            <img src={activity.file_url} alt={activity.file_name} className="w-full rounded-lg" />
+                          )}
+                          <div className="flex gap-2">
+                            <a href={activity.file_url} target="_blank" rel="noopener noreferrer" className="flex-1">
+                              <Button variant="outline" size="sm" className="w-full">
+                                Voir
+                              </Button>
+                            </a>
+                            <a href={activity.file_url} download={activity.file_name} className="flex-1">
+                              <Button variant="outline" size="sm" className="w-full">
+                                <Download className="h-3 w-3 mr-2" />
+                                Télécharger
+                              </Button>
+                            </a>
+                            {activity.file_type === 'application/pdf' && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="flex-1"
+                                onClick={() => {
+                                  const w = window.open(activity.file_url, '_blank');
+                                  if (w) setTimeout(() => w.print(), 1000);
+                                }}
+                              >
+                                <Printer className="h-3 w-3 mr-2" />
+                                Imprimer
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
               )}
             </div>
           ) : (
