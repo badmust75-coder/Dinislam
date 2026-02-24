@@ -61,6 +61,7 @@ const RamadanDayDialog = ({
   open,
   onOpenChange,
   dayNumber,
+  dayId,
   theme,
   videoUrl,
   videos,
