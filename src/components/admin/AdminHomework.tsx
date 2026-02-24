@@ -8,7 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, Plus, Trash2, BookOpen, Sparkles, Hand, BookMarked, Moon, CheckCircle2, Clock, FileText, Video, Music, Mic, Square, Loader2 } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, BookOpen, Sparkles, Hand, BookMarked, Moon, CheckCircle2, Clock, FileText, Video, Music, Mic, Square, Loader2, RotateCcw, Send, Play } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
@@ -41,6 +41,11 @@ const AdminHomework = ({ onBack }: AdminHomeworkProps) => {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Audio preview state (record first, preview before upload)
+  const [pendingAudioBlob, setPendingAudioBlob] = useState<Blob | null>(null);
+  const [pendingAudioPreviewUrl, setPendingAudioPreviewUrl] = useState<string | null>(null);
+
   // Fetch all students
   const { data: students } = useQuery({
     queryKey: ['admin-homework-students'],
@@ -100,32 +105,14 @@ const AdminHomework = ({ onBack }: AdminHomeworkProps) => {
         if (e.data.size > 0) audioChunksRef.current.push(e.data);
       };
 
-      mediaRecorder.onstop = async () => {
+      mediaRecorder.onstop = () => {
         stream.getTracks().forEach(t => t.stop());
         if (timerRef.current) clearInterval(timerRef.current);
 
-        setIsUploadingAudio(true);
-        try {
-          const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-          const audioFile = new File([audioBlob], `admin_audio_${Date.now()}.webm`, { type: 'audio/webm' });
-          const filePath = `admin/${Date.now()}.webm`;
-          const { error: uploadError } = await supabase.storage
-            .from('homework-submissions')
-            .upload(filePath, audioFile);
-          if (uploadError) throw uploadError;
-
-          const { data: { publicUrl } } = supabase.storage
-            .from('homework-submissions')
-            .getPublicUrl(filePath);
-
-          setAudioUrl(publicUrl);
-          toast.success('Audio enregistré ✅');
-        } catch (err: any) {
-          toast.error('Erreur upload audio: ' + err.message);
-        } finally {
-          setIsUploadingAudio(false);
-        }
-
+        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        const previewUrl = URL.createObjectURL(audioBlob);
+        setPendingAudioBlob(audioBlob);
+        setPendingAudioPreviewUrl(previewUrl);
         setIsRecording(false);
         setRecordingTime(0);
       };
@@ -144,6 +131,42 @@ const AdminHomework = ({ onBack }: AdminHomeworkProps) => {
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
       mediaRecorderRef.current.stop();
     }
+  };
+
+  const confirmAudio = async () => {
+    if (!pendingAudioBlob) return;
+    setIsUploadingAudio(true);
+    try {
+      const audioFile = new File([pendingAudioBlob], `admin_audio_${Date.now()}.webm`, { type: 'audio/webm' });
+      const filePath = `admin/${Date.now()}.webm`;
+      const { error: uploadError } = await supabase.storage
+        .from('homework-submissions')
+        .upload(filePath, audioFile);
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('homework-submissions')
+        .getPublicUrl(filePath);
+
+      setAudioUrl(publicUrl);
+      clearPendingAudio();
+      toast.success('Audio enregistré ✅');
+    } catch (err: any) {
+      toast.error('Erreur upload audio: ' + err.message);
+    } finally {
+      setIsUploadingAudio(false);
+    }
+  };
+
+  const clearPendingAudio = () => {
+    if (pendingAudioPreviewUrl) URL.revokeObjectURL(pendingAudioPreviewUrl);
+    setPendingAudioBlob(null);
+    setPendingAudioPreviewUrl(null);
+  };
+
+  const reRecord = () => {
+    clearPendingAudio();
+    startRecording();
   };
 
   const formatTime = (seconds: number) => {
@@ -192,6 +215,34 @@ const AdminHomework = ({ onBack }: AdminHomeworkProps) => {
   const selectedStudent = students?.find(s => s.user_id === selectedUserId);
 
   const getSubjectInfo = (subject: string) => SUBJECTS.find(s => s.value === subject) || SUBJECTS[0];
+
+  const renderSubmissionItem = (sub: any) => {
+    const isAudio = sub.content_type?.startsWith('audio');
+    if (isAudio) {
+      return (
+        <div key={sub.id} className="bg-muted/50 rounded-lg p-2 space-y-1">
+          <div className="flex items-center gap-1">
+            <Music className="h-3 w-3 text-primary" />
+            <span className="text-xs text-muted-foreground truncate">{sub.file_name}</span>
+          </div>
+          <audio src={sub.file_url} controls className="w-full h-8" />
+        </div>
+      );
+    }
+    return (
+      <a
+        key={sub.id}
+        href={sub.file_url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="flex items-center gap-2 text-xs text-primary hover:underline"
+      >
+        {sub.content_type?.startsWith('video') ? <Video className="h-3 w-3" /> :
+         <FileText className="h-3 w-3" />}
+        {sub.file_name}
+      </a>
+    );
+  };
 
   return (
     <div className="space-y-4">
@@ -271,7 +322,31 @@ const AdminHomework = ({ onBack }: AdminHomeworkProps) => {
               {/* Audio recording for admin */}
               <div className="space-y-2">
                 <p className="text-xs text-muted-foreground">🎙️ Audio (optionnel) :</p>
-                {isRecording ? (
+
+                {/* Pending audio preview (recorded but not yet confirmed) */}
+                {pendingAudioPreviewUrl ? (
+                  <div className="space-y-2 p-3 bg-muted/50 rounded-xl">
+                    <p className="text-xs font-semibold text-foreground text-center">🎙️ Aperçu de l'enregistrement</p>
+                    <audio src={pendingAudioPreviewUrl} controls className="w-full h-10" />
+                    <div className="flex gap-2">
+                      <Button variant="outline" size="sm" className="flex-1 gap-1" onClick={clearPendingAudio}>
+                        <Trash2 className="h-3.5 w-3.5 text-destructive" /> Supprimer
+                      </Button>
+                      <Button variant="outline" size="sm" className="flex-1 gap-1" onClick={reRecord}>
+                        <RotateCcw className="h-3.5 w-3.5" /> Refaire
+                      </Button>
+                      <Button
+                        size="sm"
+                        className="flex-1 gap-1 bg-green-500 hover:bg-green-600 text-white"
+                        onClick={confirmAudio}
+                        disabled={isUploadingAudio}
+                      >
+                        {isUploadingAudio ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+                        Valider
+                      </Button>
+                    </div>
+                  </div>
+                ) : isRecording ? (
                   <Button
                     variant="destructive"
                     className="w-full justify-center gap-2"
@@ -380,20 +455,7 @@ const AdminHomework = ({ onBack }: AdminHomeworkProps) => {
                   {assignmentSubmissions.length > 0 && (
                     <div className="mt-2 space-y-1">
                       <p className="text-xs font-semibold text-foreground">📎 Fichiers rendus :</p>
-                      {assignmentSubmissions.map(sub => (
-                        <a
-                          key={sub.id}
-                          href={sub.file_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex items-center gap-2 text-xs text-primary hover:underline"
-                        >
-                          {sub.content_type.startsWith('video') ? <Video className="h-3 w-3" /> :
-                           sub.content_type.startsWith('audio') ? <Music className="h-3 w-3" /> :
-                           <FileText className="h-3 w-3" />}
-                          {sub.file_name}
-                        </a>
-                      ))}
+                      {assignmentSubmissions.map(sub => renderSubmissionItem(sub))}
                     </div>
                   )}
                 </CardContent>

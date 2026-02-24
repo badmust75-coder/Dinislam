@@ -5,8 +5,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { CheckCircle2, Clock, BookOpen, Sparkles, Hand, BookMarked, Moon, ExternalLink, FileText, Video, Music, Upload, Loader2, Mic, Square, Image as ImageIcon, FolderOpen } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { CheckCircle2, Clock, BookOpen, Sparkles, Hand, BookMarked, Moon, ExternalLink, FileText, Video, Music, Upload, Loader2, Mic, Square, Image as ImageIcon, FolderOpen, Play, Trash2, Send, RotateCcw } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
@@ -33,6 +33,12 @@ const HomeworkCard = () => {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Audio preview state (before sending)
+  const [pendingAudioBlob, setPendingAudioBlob] = useState<Blob | null>(null);
+  const [pendingAudioUrl, setPendingAudioUrl] = useState<string | null>(null);
+  const [pendingAudioAssignmentId, setPendingAudioAssignmentId] = useState<string | null>(null);
+  const [isSendingAudio, setIsSendingAudio] = useState(false);
 
   const { data: profile } = useQuery({
     queryKey: ['my-profile-name', user?.id],
@@ -164,18 +170,20 @@ const HomeworkCard = () => {
       mediaRecorderRef.current = mediaRecorder;
       audioChunksRef.current = [];
       setRecordingTime(0);
+      setPendingAudioAssignmentId(assignmentId);
 
       mediaRecorder.ondataavailable = (e) => {
         if (e.data.size > 0) audioChunksRef.current.push(e.data);
       };
 
-      mediaRecorder.onstop = async () => {
+      mediaRecorder.onstop = () => {
         stream.getTracks().forEach(t => t.stop());
         if (timerRef.current) clearInterval(timerRef.current);
 
         const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-        const audioFile = new File([audioBlob], `audio_${Date.now()}.webm`, { type: 'audio/webm' });
-        await uploadFile(assignmentId, audioFile);
+        const url = URL.createObjectURL(audioBlob);
+        setPendingAudioBlob(audioBlob);
+        setPendingAudioUrl(url);
         setIsRecording(false);
         setRecordingTime(0);
       };
@@ -197,6 +205,32 @@ const HomeworkCard = () => {
     }
   };
 
+  const confirmSendAudio = async () => {
+    if (!pendingAudioBlob || !pendingAudioAssignmentId) return;
+    setIsSendingAudio(true);
+    try {
+      const audioFile = new File([pendingAudioBlob], `audio_${Date.now()}.webm`, { type: 'audio/webm' });
+      await uploadFile(pendingAudioAssignmentId, audioFile);
+      clearPendingAudio();
+    } catch (err: any) {
+      toast.error('Erreur: ' + err.message);
+    } finally {
+      setIsSendingAudio(false);
+    }
+  };
+
+  const clearPendingAudio = () => {
+    if (pendingAudioUrl) URL.revokeObjectURL(pendingAudioUrl);
+    setPendingAudioBlob(null);
+    setPendingAudioUrl(null);
+    setPendingAudioAssignmentId(null);
+  };
+
+  const reRecord = () => {
+    clearPendingAudio();
+    if (renderDialogId) startRecording(renderDialogId);
+  };
+
   const formatTime = (seconds: number) => {
     const m = Math.floor(seconds / 60).toString().padStart(2, '0');
     const s = (seconds % 60).toString().padStart(2, '0');
@@ -215,6 +249,34 @@ const HomeworkCard = () => {
       ? `${subjectInfo.path}?lesson=${encodeURIComponent(lessonRef)}`
       : subjectInfo.path;
     navigate(path);
+  };
+
+  const renderSubmissionItem = (sub: any) => {
+    const isAudio = sub.content_type?.startsWith('audio');
+    if (isAudio) {
+      return (
+        <div key={sub.id} className="bg-primary/5 rounded px-2 py-1.5">
+          <div className="flex items-center gap-1 mb-1">
+            <Music className="h-3 w-3 text-primary" />
+            <span className="text-[10px] text-muted-foreground truncate">{sub.file_name}</span>
+          </div>
+          <audio src={sub.file_url} controls className="w-full h-8" />
+        </div>
+      );
+    }
+    return (
+      <a
+        key={sub.id}
+        href={sub.file_url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="inline-flex items-center gap-1 text-[10px] text-primary hover:underline bg-primary/5 rounded px-1.5 py-0.5"
+      >
+        {sub.content_type?.startsWith('video') ? <Video className="h-3 w-3" /> :
+         <FileText className="h-3 w-3" />}
+        {sub.file_name}
+      </a>
+    );
   };
 
   return (
@@ -262,7 +324,10 @@ const HomeworkCard = () => {
                       <p className="text-xs text-muted-foreground mt-0.5">{assignment.description}</p>
                     )}
                     {assignment.audio_url && (
-                      <audio src={assignment.audio_url} controls className="w-full h-8 mt-1" />
+                      <div className="mt-1">
+                        <p className="text-[10px] text-muted-foreground mb-0.5">🎙️ Audio du prof :</p>
+                        <audio src={assignment.audio_url} controls className="w-full h-8" />
+                      </div>
                     )}
                   </div>
                 </div>
@@ -326,21 +391,8 @@ const HomeworkCard = () => {
 
                 {/* Submitted files */}
                 {assignmentSubs.length > 0 && (
-                  <div className="flex flex-wrap gap-1">
-                    {assignmentSubs.map(sub => (
-                      <a
-                        key={sub.id}
-                        href={sub.file_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 text-[10px] text-primary hover:underline bg-primary/5 rounded px-1.5 py-0.5"
-                      >
-                        {sub.content_type.startsWith('video') ? <Video className="h-3 w-3" /> :
-                         sub.content_type.startsWith('audio') ? <Music className="h-3 w-3" /> :
-                         <FileText className="h-3 w-3" />}
-                        {sub.file_name}
-                      </a>
-                    ))}
+                  <div className="space-y-1">
+                    {assignmentSubs.map(sub => renderSubmissionItem(sub))}
                   </div>
                 )}
               </div>
@@ -367,14 +419,49 @@ const HomeworkCard = () => {
       </div>
 
       {/* Render dialog - file type picker */}
-      <Dialog open={!!renderDialogId} onOpenChange={(open) => { if (!open && !isRecording) setRenderDialogId(null); }}>
+      <Dialog open={!!renderDialogId} onOpenChange={(open) => { if (!open && !isRecording) { setRenderDialogId(null); clearPendingAudio(); } }}>
         <DialogContent className="max-w-xs rounded-2xl">
           <DialogHeader>
             <DialogTitle className="text-center text-base">Rendre un devoir</DialogTitle>
+            <DialogDescription className="text-center text-xs">Choisissez le type de fichier à envoyer</DialogDescription>
           </DialogHeader>
           <div className="flex flex-col gap-2">
-            {/* Audio recorder */}
-            {isRecording ? (
+            {/* Audio preview (after recording, before sending) */}
+            {pendingAudioUrl ? (
+              <div className="space-y-2 p-3 bg-muted/50 rounded-xl">
+                <p className="text-xs font-semibold text-foreground text-center">🎙️ Aperçu de l'enregistrement</p>
+                <audio src={pendingAudioUrl} controls className="w-full h-10" />
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex-1 gap-1"
+                    onClick={clearPendingAudio}
+                  >
+                    <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                    Supprimer
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex-1 gap-1"
+                    onClick={reRecord}
+                  >
+                    <RotateCcw className="h-3.5 w-3.5" />
+                    Refaire
+                  </Button>
+                  <Button
+                    size="sm"
+                    className="flex-1 gap-1 bg-green-500 hover:bg-green-600 text-white"
+                    onClick={confirmSendAudio}
+                    disabled={isSendingAudio}
+                  >
+                    {isSendingAudio ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+                    Envoyer
+                  </Button>
+                </div>
+              </div>
+            ) : isRecording ? (
               <Button
                 variant="destructive"
                 className="w-full justify-start gap-3 h-12 text-sm"
@@ -408,7 +495,7 @@ const HomeworkCard = () => {
                   }
                 }
               }}
-              disabled={isRecording}
+              disabled={isRecording || !!pendingAudioUrl}
             >
               <ImageIcon className="h-5 w-5 text-blue-500" />
               <span>Photothèque</span>
@@ -427,7 +514,7 @@ const HomeworkCard = () => {
                   }
                 }
               }}
-              disabled={isRecording}
+              disabled={isRecording || !!pendingAudioUrl}
             >
               <Video className="h-5 w-5 text-green-500" />
               <span>Prendre une photo ou une vidéo</span>
@@ -440,7 +527,7 @@ const HomeworkCard = () => {
               onClick={() => {
                 if (renderDialogId) fileInputRefs.current[renderDialogId]?.click();
               }}
-              disabled={isRecording}
+              disabled={isRecording || !!pendingAudioUrl}
             >
               <FolderOpen className="h-5 w-5 text-amber-500" />
               <span>Choisir le fichier</span>
