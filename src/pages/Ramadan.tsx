@@ -375,6 +375,7 @@ const Ramadan = () => {
             open={!!openDay}
             onOpenChange={(isOpen) => !isOpen && setOpenDay(null)}
             dayNumber={openDay.day_number}
+            dayId={openDay.id}
             theme={openDay.theme}
             videoUrl={openDay.video_url}
             videos={getVideosForDay(openDay.id)}
