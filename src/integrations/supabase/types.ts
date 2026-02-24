@@ -875,6 +875,7 @@ export type Database = {
           gender: string | null
           id: string
           is_approved: boolean
+          last_seen: string | null
           updated_at: string
           user_id: string
         }
@@ -887,6 +888,7 @@ export type Database = {
           gender?: string | null
           id?: string
           is_approved?: boolean
+          last_seen?: string | null
           updated_at?: string
           user_id: string
         }
@@ -899,6 +901,7 @@ export type Database = {
           gender?: string | null
           id?: string
           is_approved?: boolean
+          last_seen?: string | null
           updated_at?: string
           user_id?: string
         }
