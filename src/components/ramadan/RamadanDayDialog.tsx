@@ -63,6 +63,7 @@ const RamadanDayDialog = ({
   videoUrl,
   videos,
   quizzes,
+  activities = [],
   quizCompleted,
   videoWatched,
   maxErrors = 3,
