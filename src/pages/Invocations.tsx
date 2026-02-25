@@ -121,7 +121,7 @@ const InvocationDetailDialog = ({ invocation, contents, progress, validationRequ
                     </div>
                   )}
                   {content.content_type === 'image' && (
-                    <img src={content.file_url} alt={content.file_name} className="w-full object-cover max-h-64" />
+                    <img src={content.file_url} alt={content.file_name} className="w-full h-auto object-contain" />
                   )}
                   {(content.content_type === 'pdf' || content.content_type === 'document') && (
                     <a href={content.file_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 p-3 hover:bg-muted/50 transition-colors">
