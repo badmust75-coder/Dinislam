@@ -785,6 +785,30 @@ export type Database = {
           },
         ]
       }
+      point_settings: {
+        Row: {
+          id: string
+          module_key: string
+          module_label: string
+          points_per_validation: number
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          module_key: string
+          module_label: string
+          points_per_validation?: number
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          module_key?: string
+          module_label?: string
+          points_per_validation?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       prayer_categories: {
         Row: {
           created_at: string

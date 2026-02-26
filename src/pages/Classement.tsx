@@ -1,11 +1,15 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import AppLayout from '@/components/layout/AppLayout';
 import { Card, CardContent } from '@/components/ui/card';
-import { Loader2, Star, Crown } from 'lucide-react';
-import { useEffect } from 'react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Loader2, Star, Crown, Settings, Save } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
 
 interface RankingEntry {
   user_id: string;
@@ -14,17 +18,23 @@ interface RankingEntry {
   rank: number;
 }
 
+interface PointSetting {
+  id: string;
+  module_key: string;
+  module_label: string;
+  points_per_validation: number;
+}
+
+const MODULE_ICONS: Record<string, string> = {
+  sourates: '📖',
+  nourania: '🌙',
+  ramadan: '🕌',
+  alphabet: '🔤',
+  invocations: '🤲',
+  prayer: '🙏',
+};
+
 const getRankDisplay = (rank: number) => {
-  if (rank <= 3) {
-    // Ranks 1-3: Gold trophy (star-shaped) with rank number inside
-    return (
-      <div className="relative flex items-center justify-center w-10 h-10">
-        <Star className="h-10 w-10 text-yellow-400 fill-yellow-400 drop-shadow-[0_2px_4px_rgba(234,179,8,0.5)]" />
-        <span className="absolute text-[11px] font-extrabold text-yellow-900">{rank}</span>
-      </div>
-    );
-  }
-  // Rank 4+: Same yellow star with rank number inside
   return (
     <div className="relative flex items-center justify-center w-10 h-10">
       <Star className="h-10 w-10 text-yellow-400 fill-yellow-400 drop-shadow-[0_2px_4px_rgba(234,179,8,0.5)]" />
@@ -48,7 +58,22 @@ const getEncouragementMessage = (rank: number, total: number) => {
 };
 
 const Classement = () => {
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
+  const queryClient = useQueryClient();
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [editedPoints, setEditedPoints] = useState<Record<string, number>>({});
+
+  const { data: pointSettings = [] } = useQuery({
+    queryKey: ['point-settings'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('point_settings')
+        .select('*')
+        .order('module_key');
+      if (error) throw error;
+      return data as PointSetting[];
+    },
+  });
 
   const { data: rankings, isLoading, refetch } = useQuery({
     queryKey: ['student-rankings'],
@@ -90,6 +115,36 @@ const Classement = () => {
     },
   });
 
+  const updatePointsMutation = useMutation({
+    mutationFn: async (updates: Record<string, number>) => {
+      for (const [moduleKey, points] of Object.entries(updates)) {
+        const { error } = await supabase
+          .from('point_settings')
+          .update({ points_per_validation: points, updated_at: new Date().toISOString() })
+          .eq('module_key', moduleKey);
+        if (error) throw error;
+      }
+      // Recalculate all students' points
+      const { data: allStudents } = await supabase
+        .from('student_ranking')
+        .select('user_id');
+      if (allStudents) {
+        for (const student of allStudents) {
+          await supabase.rpc('recalculate_student_points', { p_user_id: student.user_id });
+        }
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['point-settings'] });
+      queryClient.invalidateQueries({ queryKey: ['student-rankings'] });
+      toast.success('Barème mis à jour et points recalculés !');
+      setSettingsOpen(false);
+    },
+    onError: () => {
+      toast.error('Erreur lors de la mise à jour');
+    },
+  });
+
   useEffect(() => {
     const channel = supabase
       .channel('rankings-realtime')
@@ -97,6 +152,17 @@ const Classement = () => {
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [refetch]);
+
+  const handleOpenSettings = () => {
+    const initial: Record<string, number> = {};
+    pointSettings.forEach(s => { initial[s.module_key] = s.points_per_validation; });
+    setEditedPoints(initial);
+    setSettingsOpen(true);
+  };
+
+  const handleSavePoints = () => {
+    updatePointsMutation.mutate(editedPoints);
+  };
 
   const myRanking = rankings?.find(r => r.user_id === user?.id);
   const encouragement = myRanking ? getEncouragementMessage(myRanking.rank, rankings?.length || 0) : null;
@@ -166,19 +232,14 @@ const Classement = () => {
                   )}
                   style={{ animationDelay: `${index * 40}ms` }}
                 >
-                  {/* Rank display */}
                   <div className="flex-shrink-0 w-10 flex justify-center">
                     {getRankDisplay(entry.rank)}
                   </div>
-
-                  {/* Name */}
                   <div className="flex-1 min-w-0">
                     <p className={cn('font-semibold truncate text-sm', isMe ? 'text-primary' : 'text-foreground')}>
-                      {isMe ? 'Toi' : (entry.full_name || 'Élève')}
+                      {isMe ? 'Toi' : (entry.full_name?.split(' ')[0] || 'Élève')}
                     </p>
                   </div>
-
-                  {/* Score */}
                   <div className="flex-shrink-0 w-16 text-right">
                     <p className={cn(
                       'font-bold text-lg',
@@ -196,17 +257,64 @@ const Classement = () => {
         {/* Legend */}
         <Card className="bg-muted/50">
           <CardContent className="p-3">
-            <p className="text-xs font-semibold text-foreground mb-2">Barème des points :</p>
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-xs font-semibold text-foreground">Barème des points :</p>
+              {isAdmin && (
+                <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={handleOpenSettings}>
+                  <Settings className="h-3 w-3 mr-1" />
+                  Modifier
+                </Button>
+              )}
+            </div>
             <div className="grid grid-cols-2 gap-1 text-[10px] text-muted-foreground">
-              <span>📖 Sourate validée : 10 pts</span>
-              <span>🌙 Nourania validée : 15 pts</span>
-              <span>🕌 Ramadan complété : 5 pts</span>
-              <span>🔤 Lettre validée : 5 pts</span>
-              <span>🤲 Invocation mémorisée : 5 pts</span>
-              <span>🙏 Prière validée : 10 pts</span>
+              {pointSettings.map(s => (
+                <span key={s.module_key}>
+                  {MODULE_ICONS[s.module_key] || '📌'} {s.module_label} : {s.points_per_validation} pts
+                </span>
+              ))}
             </div>
           </CardContent>
         </Card>
+
+        {/* Admin point settings dialog */}
+        <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
+          <DialogContent className="max-w-sm">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Settings className="h-5 w-5 text-primary" />
+                Modifier le barème
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-3">
+              {pointSettings.map(s => (
+                <div key={s.module_key} className="flex items-center gap-3">
+                  <span className="text-lg">{MODULE_ICONS[s.module_key] || '📌'}</span>
+                  <label className="flex-1 text-sm font-medium text-foreground">{s.module_label}</label>
+                  <Input
+                    type="number"
+                    min={0}
+                    className="w-20 text-center"
+                    value={editedPoints[s.module_key] ?? s.points_per_validation}
+                    onChange={e => setEditedPoints(prev => ({ ...prev, [s.module_key]: parseInt(e.target.value) || 0 }))}
+                  />
+                  <span className="text-xs text-muted-foreground">pts</span>
+                </div>
+              ))}
+            </div>
+            <Button
+              onClick={handleSavePoints}
+              disabled={updatePointsMutation.isPending}
+              className="w-full mt-2"
+            >
+              {updatePointsMutation.isPending ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Save className="h-4 w-4 mr-2" />
+              )}
+              Enregistrer et recalculer
+            </Button>
+          </DialogContent>
+        </Dialog>
       </div>
     </AppLayout>
   );
