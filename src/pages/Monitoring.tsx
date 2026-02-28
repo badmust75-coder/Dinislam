@@ -166,9 +166,19 @@ const Monitoring = () => {
     setErrorCount(count || 0);
   }, []);
 
+  const loadValidationCounts = useCallback(async () => {
+    const [reg, sou, nou, inv] = await Promise.all([
+      supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('is_approved', false),
+      supabase.from('sourate_validation_requests').select('*', { count: 'exact', head: true }).eq('status', 'pending'),
+      supabase.from('nourania_validation_requests').select('*', { count: 'exact', head: true }).eq('status', 'pending'),
+      supabase.from('invocation_validation_requests').select('*', { count: 'exact', head: true }).eq('status', 'pending'),
+    ]);
+    setValidationCounts({ registrations: reg.count || 0, sourates: sou.count || 0, nourania: nou.count || 0, invocations: inv.count || 0 });
+  }, []);
+
   const refreshAll = useCallback(async () => {
-    await Promise.all([checkStatus(), loadPushData(), loadActivity(), loadDbStats(), loadLogs()]);
-  }, [checkStatus, loadPushData, loadActivity, loadDbStats, loadLogs]);
+    await Promise.all([checkStatus(), loadPushData(), loadActivity(), loadDbStats(), loadLogs(), loadValidationCounts()]);
+  }, [checkStatus, loadPushData, loadActivity, loadDbStats, loadLogs, loadValidationCounts]);
 
   useEffect(() => {
     if (!isAdmin) { navigate('/'); return; }
