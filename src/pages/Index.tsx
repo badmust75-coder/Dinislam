@@ -127,7 +127,23 @@ const Index = () => {
       <WelcomeNameDialog open={showWelcomeDialog} onComplete={handleWelcomeComplete} />
       <AppLayout showBottomNav={false}>
         <div className="p-4 space-y-6">
-          {/* Welcome Section */}
+          {/* Notification Permission Banner */}
+          {showNotifBanner && (
+            <div className="bg-primary/10 border border-primary/30 rounded-xl p-4 flex items-center gap-3 animate-fade-in">
+              <Bell className="h-6 w-6 text-primary shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-foreground">🔔 Active les notifications pour ne rien manquer !</p>
+              </div>
+              <div className="flex gap-2 shrink-0">
+                <Button size="sm" variant="ghost" onClick={() => setShowNotifBanner(false)}>
+                  Plus tard
+                </Button>
+                <Button size="sm" onClick={handleActivateNotifications} disabled={activatingNotif}>
+                  {activatingNotif ? '...' : 'Activer'}
+                </Button>
+              </div>
+            </div>
+          )}
           <div className="text-center py-6 animate-fade-in">
             <div className="flex items-center justify-center gap-2 mb-3">
               <div className="w-10 h-10 rounded-full bg-gradient-to-br from-gold to-gold-dark flex items-center justify-center">
