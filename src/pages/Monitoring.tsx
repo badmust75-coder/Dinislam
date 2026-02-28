@@ -12,12 +12,13 @@ import AppLayout from '@/components/layout/AppLayout';
 import {
   Activity, Bell, Database, AlertTriangle, Trash2, Send,
   RefreshCw, CheckCircle, XCircle, Users, MessageSquare,
-  BarChart3, Clock, Loader2
+  BarChart3, Clock, Loader2, UserCheck, ClipboardCheck, Sparkles, Hand
 } from 'lucide-react';
 import { format, subDays, startOfWeek, startOfMonth } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  Line, ComposedChart, Cell, LabelList
 } from 'recharts';
 
 const StatusDot = ({ ok }: { ok: boolean | null }) => {
@@ -63,6 +64,9 @@ const Monitoring = () => {
   const [logs, setLogs] = useState<any[]>([]);
   const [errorCount, setErrorCount] = useState(0);
   const [clearingLogs, setClearingLogs] = useState(false);
+
+  // Validation counts
+  const [validationCounts, setValidationCounts] = useState({ registrations: 0, sourates: 0, nourania: 0, invocations: 0 });
 
   const checkStatus = useCallback(async () => {
     // Supabase ping
@@ -162,9 +166,19 @@ const Monitoring = () => {
     setErrorCount(count || 0);
   }, []);
 
+  const loadValidationCounts = useCallback(async () => {
+    const [reg, sou, nou, inv] = await Promise.all([
+      supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('is_approved', false),
+      supabase.from('sourate_validation_requests').select('*', { count: 'exact', head: true }).eq('status', 'pending'),
+      supabase.from('nourania_validation_requests').select('*', { count: 'exact', head: true }).eq('status', 'pending'),
+      supabase.from('invocation_validation_requests').select('*', { count: 'exact', head: true }).eq('status', 'pending'),
+    ]);
+    setValidationCounts({ registrations: reg.count || 0, sourates: sou.count || 0, nourania: nou.count || 0, invocations: inv.count || 0 });
+  }, []);
+
   const refreshAll = useCallback(async () => {
-    await Promise.all([checkStatus(), loadPushData(), loadActivity(), loadDbStats(), loadLogs()]);
-  }, [checkStatus, loadPushData, loadActivity, loadDbStats, loadLogs]);
+    await Promise.all([checkStatus(), loadPushData(), loadActivity(), loadDbStats(), loadLogs(), loadValidationCounts()]);
+  }, [checkStatus, loadPushData, loadActivity, loadDbStats, loadLogs, loadValidationCounts]);
 
   useEffect(() => {
     if (!isAdmin) { navigate('/'); return; }
@@ -274,6 +288,44 @@ const Monitoring = () => {
           </CardContent>
         </Card>
 
+        {/* SECTION 1.5: Validations en attente */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg flex items-center gap-2">
+              ✅ Validations en attente
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 gap-3">
+              {[
+                { label: 'Inscriptions', count: validationCounts.registrations, icon: UserCheck, section: 'registration-validations' },
+                { label: 'Sourates', count: validationCounts.sourates, icon: ClipboardCheck, section: 'sourates-validations' },
+                { label: 'Nourania', count: validationCounts.nourania, icon: Sparkles, section: 'nourania-validations' },
+                { label: 'Invocations', count: validationCounts.invocations, icon: Hand, section: 'invocations-validations' },
+              ].map((item) => {
+                const Icon = item.icon;
+                const hasPending = item.count > 0;
+                return (
+                  <button
+                    key={item.section}
+                    onClick={() => navigate(`/admin?section=${item.section}`)}
+                    className={`rounded-xl p-3 border transition-all text-center ${
+                      hasPending
+                        ? 'bg-red-500/10 border-red-300 dark:border-red-700 hover:bg-red-500/20'
+                        : 'bg-emerald-500/10 border-emerald-300 dark:border-emerald-700 hover:bg-emerald-500/20'
+                    }`}
+                  >
+                    <Icon className={`h-5 w-5 mx-auto mb-1 ${hasPending ? 'text-red-500' : 'text-emerald-500'}`} />
+                    <p className={`text-xs font-medium ${hasPending ? 'text-red-700 dark:text-red-300' : 'text-emerald-700 dark:text-emerald-300'}`}>{item.label}</p>
+                    <p className={`text-xl font-bold ${hasPending ? 'text-red-600' : 'text-emerald-600'}`}>{item.count}</p>
+                    {hasPending && <Badge className="bg-red-500 text-white text-[10px] px-1.5 mt-1 animate-pulse">{item.count}</Badge>}
+                  </button>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+
         {/* SECTION 2: Push Notifications */}
         <Card>
           <CardHeader className="pb-3">
@@ -343,15 +395,33 @@ const Monitoring = () => {
 
             {activityChart.length > 0 && (
               <div>
-                <p className="text-sm font-medium mb-2">Connexions (7 derniers jours)</p>
-                <ResponsiveContainer width="100%" height={180}>
-                  <BarChart data={activityChart}>
-                    <CartesianGrid strokeDasharray="3 3" />
+                <p className="text-sm font-medium mb-2">📈 Connexions des 7 derniers jours</p>
+                <ResponsiveContainer width="100%" height={220}>
+                  <ComposedChart data={activityChart}>
+                    <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
                     <XAxis dataKey="day" fontSize={12} />
                     <YAxis fontSize={12} allowDecimals={false} />
-                    <Tooltip />
-                    <Bar dataKey="connexions" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
-                  </BarChart>
+                    <Tooltip
+                      content={({ active, payload, label }) => {
+                        if (!active || !payload?.length) return null;
+                        return (
+                          <div className="bg-background border rounded-lg px-3 py-2 shadow-lg text-sm">
+                            <p className="font-medium">{label} : {payload[0].value} connexions</p>
+                          </div>
+                        );
+                      }}
+                    />
+                    <Bar dataKey="connexions" radius={[4, 4, 0, 0]}>
+                      <LabelList dataKey="connexions" position="top" fontSize={11} fontWeight="bold" />
+                      {activityChart.map((entry, index) => {
+                        const max = Math.max(...activityChart.map(e => e.connexions), 1);
+                        const ratio = entry.connexions / max;
+                        const hue = 210 + ratio * 30; // blue to gold-ish
+                        return <Cell key={index} fill={`hsl(${hue}, 70%, ${50 - ratio * 15}%)`} />;
+                      })}
+                    </Bar>
+                    <Line type="monotone" dataKey="connexions" stroke="hsl(var(--primary))" strokeWidth={2} dot={false} strokeDasharray="5 5" />
+                  </ComposedChart>
                 </ResponsiveContainer>
               </div>
             )}

@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/AuthContext';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import AppLayout from '@/components/layout/AppLayout';
 import AdminModuleCard from '@/components/admin/AdminModuleCard';
@@ -107,6 +107,7 @@ const SortableCard = ({ id, children }: { id: string; children: React.ReactNode 
 const Admin = () => {
   const { isAdmin, loading } = useAuth();
   const queryClient = useQueryClient();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [currentView, setCurrentView] = useState<ViewType>('dashboard');
   const [pendingCount, setPendingCount] = useState(0);
   const [pendingRegistrations, setPendingRegistrations] = useState(0);
@@ -216,6 +217,15 @@ const Admin = () => {
   useEffect(() => { setPendingRegistrations(pendingRegCount || 0); }, [pendingRegCount]);
   useEffect(() => { setPendingNourania(pendingNouraniaCount || 0); }, [pendingNouraniaCount]);
   useEffect(() => { setPendingInvocations(pendingInvocationsCount || 0); }, [pendingInvocationsCount]);
+
+  // Handle section query param from admin command modal
+  useEffect(() => {
+    const section = searchParams.get('section');
+    if (section) {
+      setCurrentView(section as ViewType);
+      setSearchParams({}, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
 
   // Realtime subscription for pending count updates
   useEffect(() => {
@@ -470,94 +480,38 @@ const Admin = () => {
         {/* Real-time online users monitoring */}
         <AdminOnlineUsers />
 
-        {/* Validation cards at top (NOT sortable) */}
-        <button
-          onClick={() => setCurrentView('registration-validations')}
-          className={`w-full rounded-2xl p-4 shadow-card border transition-all duration-300 ${
-            pendingRegistrations > 0 ? 'bg-red-500/10 border-red-300 dark:border-red-700 hover:bg-red-500/20' : 'bg-green-500/10 border-green-300 dark:border-green-700 hover:bg-green-500/20'
-          }`}
-        >
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${pendingRegistrations > 0 ? 'bg-red-500/20' : 'bg-green-500/20'}`}>
-                <UserCheck className={`h-6 w-6 ${pendingRegistrations > 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`} />
-              </div>
-              <div className="text-left">
-                <p className={`font-bold text-base ${pendingRegistrations > 0 ? 'text-red-700 dark:text-red-300' : 'text-green-700 dark:text-green-300'}`}>Validation d'inscription</p>
-                <p className={`text-sm ${pendingRegistrations > 0 ? 'text-red-600/70 dark:text-red-400/70' : 'text-green-600/70 dark:text-green-400/70'}`}>
-                  {pendingRegistrations > 0 ? 'Inscription(s) à valider' : 'Aucune inscription en attente'}
-                </p>
-              </div>
-            </div>
-            {pendingRegistrations > 0 && <Badge className="bg-red-500 text-white hover:bg-red-600 text-lg px-3 py-1 animate-pulse">{pendingRegistrations}</Badge>}
-          </div>
-        </button>
-
-        <button
-          onClick={() => setCurrentView('sourates-validations')}
-          className={`w-full rounded-2xl p-4 shadow-card border transition-all duration-300 ${
-            pendingCount > 0 ? 'bg-red-500/10 border-red-300 dark:border-red-700 hover:bg-red-500/20' : 'bg-green-500/10 border-green-300 dark:border-green-700 hover:bg-green-500/20'
-          }`}
-        >
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${pendingCount > 0 ? 'bg-red-500/20' : 'bg-green-500/20'}`}>
-                <ClipboardCheck className={`h-6 w-6 ${pendingCount > 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`} />
-              </div>
-              <div className="text-left">
-                <p className={`font-bold text-base ${pendingCount > 0 ? 'text-red-700 dark:text-red-300' : 'text-green-700 dark:text-green-300'}`}>Validation Sourates</p>
-                <p className={`text-sm ${pendingCount > 0 ? 'text-red-600/70 dark:text-red-400/70' : 'text-green-600/70 dark:text-green-400/70'}`}>
-                  {pendingCount > 0 ? 'Sourate(s) à valider' : 'Aucune validation en attente'}
-                </p>
-              </div>
-            </div>
-            {pendingCount > 0 && <Badge className="bg-red-500 text-white hover:bg-red-600 text-lg px-3 py-1 animate-pulse">{pendingCount}</Badge>}
-          </div>
-        </button>
-
-        <button
-          onClick={() => setCurrentView('nourania-validations')}
-          className={`w-full rounded-2xl p-4 shadow-card border transition-all duration-300 ${
-            pendingNourania > 0 ? 'bg-red-500/10 border-red-300 dark:border-red-700 hover:bg-red-500/20' : 'bg-green-500/10 border-green-300 dark:border-green-700 hover:bg-green-500/20'
-          }`}
-        >
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${pendingNourania > 0 ? 'bg-red-500/20' : 'bg-green-500/20'}`}>
-                <Sparkles className={`h-6 w-6 ${pendingNourania > 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`} />
-              </div>
-              <div className="text-left">
-                <p className={`font-bold text-base ${pendingNourania > 0 ? 'text-red-700 dark:text-red-300' : 'text-green-700 dark:text-green-300'}`}>Validation Nourania</p>
-                <p className={`text-sm ${pendingNourania > 0 ? 'text-red-600/70 dark:text-red-400/70' : 'text-green-600/70 dark:text-green-400/70'}`}>
-                  {pendingNourania > 0 ? 'Leçon(s) à valider' : 'Aucune validation en attente'}
-                </p>
-              </div>
-            </div>
-            {pendingNourania > 0 && <Badge className="bg-red-500 text-white hover:bg-red-600 text-lg px-3 py-1 animate-pulse">{pendingNourania}</Badge>}
-          </div>
-        </button>
-
-        <button
-          onClick={() => setCurrentView('invocations-validations')}
-          className={`w-full rounded-2xl p-4 shadow-card border transition-all duration-300 ${
-            pendingInvocations > 0 ? 'bg-red-500/10 border-red-300 dark:border-red-700 hover:bg-red-500/20' : 'bg-green-500/10 border-green-300 dark:border-green-700 hover:bg-green-500/20'
-          }`}
-        >
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${pendingInvocations > 0 ? 'bg-red-500/20' : 'bg-green-500/20'}`}>
-                <Hand className={`h-6 w-6 ${pendingInvocations > 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`} />
-              </div>
-              <div className="text-left">
-                <p className={`font-bold text-base ${pendingInvocations > 0 ? 'text-red-700 dark:text-red-300' : 'text-green-700 dark:text-green-300'}`}>Validation Invocations</p>
-                <p className={`text-sm ${pendingInvocations > 0 ? 'text-red-600/70 dark:text-red-400/70' : 'text-green-600/70 dark:text-green-400/70'}`}>
-                  {pendingInvocations > 0 ? 'Invocation(s) à valider' : 'Aucune validation en attente'}
-                </p>
-              </div>
-            </div>
-            {pendingInvocations > 0 && <Badge className="bg-red-500 text-white hover:bg-red-600 text-lg px-3 py-1 animate-pulse">{pendingInvocations}</Badge>}
-          </div>
-        </button>
+        {/* Validation cards in 2x2 grid */}
+        <div className="grid grid-cols-2 gap-3">
+          {[
+            { view: 'registration-validations' as ViewType, count: pendingRegistrations, icon: UserCheck, label: "Validation d'inscription", pendingText: 'Inscription(s) à valider', okText: 'Aucune inscription en attente' },
+            { view: 'sourates-validations' as ViewType, count: pendingCount, icon: ClipboardCheck, label: 'Validation Sourates', pendingText: 'Sourate(s) à valider', okText: 'Aucune validation en attente' },
+            { view: 'nourania-validations' as ViewType, count: pendingNourania, icon: Sparkles, label: 'Validation Nourania', pendingText: 'Leçon(s) à valider', okText: 'Aucune validation en attente' },
+            { view: 'invocations-validations' as ViewType, count: pendingInvocations, icon: Hand, label: 'Validation Invocations', pendingText: 'Invocation(s) à valider', okText: 'Aucune validation en attente' },
+          ].map((item) => {
+            const Icon = item.icon;
+            const hasPending = item.count > 0;
+            return (
+              <button
+                key={item.view}
+                onClick={() => setCurrentView(item.view)}
+                className={`rounded-2xl p-3 shadow-card border transition-all duration-300 ${
+                  hasPending ? 'bg-red-500/10 border-red-300 dark:border-red-700 hover:bg-red-500/20' : 'bg-green-500/10 border-green-300 dark:border-green-700 hover:bg-green-500/20'
+                }`}
+              >
+                <div className="flex flex-col items-center gap-2 text-center">
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${hasPending ? 'bg-red-500/20' : 'bg-green-500/20'}`}>
+                    <Icon className={`h-5 w-5 ${hasPending ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`} />
+                  </div>
+                  <p className={`font-bold text-xs ${hasPending ? 'text-red-700 dark:text-red-300' : 'text-green-700 dark:text-green-300'}`}>{item.label}</p>
+                  <p className={`text-[10px] ${hasPending ? 'text-red-600/70 dark:text-red-400/70' : 'text-green-600/70 dark:text-green-400/70'}`}>
+                    {hasPending ? item.pendingText : item.okText}
+                  </p>
+                  {hasPending && <Badge className="bg-red-500 text-white hover:bg-red-600 text-sm px-2 py-0 animate-pulse">{item.count}</Badge>}
+                </div>
+              </button>
+            );
+          })}
+        </div>
 
         <h2 className="text-xl font-bold text-foreground mb-2">Modules natifs</h2>
         <p className="text-sm text-muted-foreground mb-4">Cliquer pour voir la progression • Menu ⋮ pour gérer le contenu</p>

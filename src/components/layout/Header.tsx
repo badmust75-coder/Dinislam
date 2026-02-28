@@ -10,8 +10,9 @@ import MessagingDialog from '@/components/messaging/MessagingDialog';
 import AdminMessagingDialog from '@/components/messaging/AdminMessagingDialog';
 import NewMessageNotification from '@/components/messaging/NewMessageNotification';
 import { useUnreadMessages } from '@/hooks/useUnreadMessages';
-import { useAdminNotificationsCount } from '@/hooks/useAdminNotificationsCount';
+import { useAdminPendingCounts } from '@/hooks/useAdminPendingCounts';
 import { useMonitoringErrorCount } from '@/hooks/useMonitoringErrorCount';
+import AdminCommandModal from '@/components/admin/AdminCommandModal';
 
 interface HeaderProps {
   title?: string;
@@ -26,8 +27,9 @@ const Header = ({
   const location = useLocation();
   const { isAdmin } = useAuth();
   const [showMessaging, setShowMessaging] = useState(false);
+  const [showAdminModal, setShowAdminModal] = useState(false);
   const { unreadCount, hasNewMessage, clearNewMessageFlag } = useUnreadMessages();
-  const adminPendingCount = useAdminNotificationsCount();
+  const pendingCounts = useAdminPendingCounts();
   const monitoringErrors = useMonitoringErrorCount();
 
   const handleOpenMessaging = () => {
@@ -74,11 +76,11 @@ const Header = ({
             )}
             {/* Admin: shield icon with dynamic badge, navigates directly to /admin */}
             {isAdmin && (
-              <Button variant="ghost" size="icon" onClick={() => navigate('/admin')} className="text-primary-foreground hover:bg-primary-foreground/10 relative">
+              <Button variant="ghost" size="icon" onClick={() => setShowAdminModal(true)} className="text-primary-foreground hover:bg-primary-foreground/10 relative">
                 <Shield className="h-5 w-5" />
-                {adminPendingCount > 0 ? (
+                {pendingCounts.total > 0 ? (
                   <Badge className="absolute -top-1 -right-1 h-5 w-5 p-0 flex items-center justify-center text-xs bg-red-500 border-2 border-primary animate-pulse">
-                    {adminPendingCount > 9 ? '9+' : adminPendingCount}
+                    {pendingCounts.total > 9 ? '9+' : pendingCounts.total}
                   </Badge>
                 ) : (
                   <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-emerald-500 border-2 border-primary flex items-center justify-center">
@@ -100,6 +102,17 @@ const Header = ({
         <AdminMessagingDialog open={showMessaging} onOpenChange={setShowMessaging} onMessagesRead={clearNewMessageFlag} />
       ) : (
         <MessagingDialog open={showMessaging} onOpenChange={setShowMessaging} onMessagesRead={clearNewMessageFlag} />
+      )}
+
+      {isAdmin && (
+        <AdminCommandModal
+          open={showAdminModal}
+          onOpenChange={setShowAdminModal}
+          pendingRegistrations={pendingCounts.registrations}
+          pendingSourates={pendingCounts.sourates}
+          pendingNourania={pendingCounts.nourania}
+          pendingInvocations={pendingCounts.invocations}
+        />
       )}
 
       <NewMessageNotification onOpenMessages={handleOpenMessaging} />
