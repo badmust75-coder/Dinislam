@@ -301,7 +301,7 @@ const Index = () => {
                           <DropdownMenuItem
                             onClick={(e) => {
                               e.stopPropagation();
-                              toggleActiveMutation.mutate({ id: mod.id, is_active: !mod.is_active });
+                              toggleActiveMutation.mutate({ id: mod.id, is_active: !mod.is_active, title: mod.title });
                             }}
                           >
                             {mod.is_active
