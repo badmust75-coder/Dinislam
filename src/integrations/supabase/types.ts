@@ -661,6 +661,35 @@ export type Database = {
           },
         ]
       }
+      notification_confirmations: {
+        Row: {
+          confirmed_at: string
+          id: string
+          notification_id: string
+          user_id: string
+        }
+        Insert: {
+          confirmed_at?: string
+          id?: string
+          notification_id: string
+          user_id: string
+        }
+        Update: {
+          confirmed_at?: string
+          id?: string
+          notification_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notification_confirmations_notification_id_fkey"
+            columns: ["notification_id"]
+            isOneToOne: false
+            referencedRelation: "scheduled_notifications"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notification_history: {
         Row: {
           body: string
@@ -1045,6 +1074,9 @@ export type Database = {
           id: string
           is_approved: boolean
           last_seen: string | null
+          notification_prompt_dismissed: string | null
+          notification_prompt_later_at: string | null
+          notification_prompt_later_count: number | null
           updated_at: string
           user_id: string
         }
@@ -1060,6 +1092,9 @@ export type Database = {
           id?: string
           is_approved?: boolean
           last_seen?: string | null
+          notification_prompt_dismissed?: string | null
+          notification_prompt_later_at?: string | null
+          notification_prompt_later_count?: number | null
           updated_at?: string
           user_id: string
         }
@@ -1075,6 +1110,9 @@ export type Database = {
           id?: string
           is_approved?: boolean
           last_seen?: string | null
+          notification_prompt_dismissed?: string | null
+          notification_prompt_later_at?: string | null
+          notification_prompt_later_count?: number | null
           updated_at?: string
           user_id?: string
         }
@@ -1322,6 +1360,48 @@ export type Database = {
           started_at?: string | null
           updated_at?: string
           updated_by?: string | null
+        }
+        Relationships: []
+      }
+      scheduled_notifications: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          end_date: string
+          id: string
+          is_active: boolean
+          message: string
+          module: string
+          recipients: Json
+          require_confirmation: boolean
+          send_time: string
+          start_date: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          end_date: string
+          id?: string
+          is_active?: boolean
+          message: string
+          module?: string
+          recipients?: Json
+          require_confirmation?: boolean
+          send_time?: string
+          start_date: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          end_date?: string
+          id?: string
+          is_active?: boolean
+          message?: string
+          module?: string
+          recipients?: Json
+          require_confirmation?: boolean
+          send_time?: string
+          start_date?: string
         }
         Relationships: []
       }
