@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { Sun, Moon, CloudMoon, Home, Church, Plane, Shirt, Bath, UtensilsCrossed, CloudRain, Heart, BedDouble, Droplets, PawPrint, Activity, Hand, BookOpen, Loader2, Check, Video, FileText, Volume2, Image as ImageIcon, X, Send, Clock, Lock, XCircle } from 'lucide-react';
+import { sendPushNotification } from '@/lib/pushHelper';
 
 // Default icon mapping by title keyword
 const getDefaultIcon = (title: string) => {
@@ -324,6 +325,17 @@ const Invocations = () => {
         .from('invocation_validation_requests')
         .insert({ user_id: user.id, invocation_id: invocationId });
       if (error) throw error;
+      
+      // Get user name and invocation name for notification
+      const { data: profile } = await supabase.from('profiles').select('full_name').eq('user_id', user.id).maybeSingle();
+      const { data: invoc } = await supabase.from('invocations').select('title_french').eq('id', invocationId).maybeSingle();
+      const firstName = profile?.full_name?.split(' ')[0] || 'Un élève';
+      const invocName = invoc?.title_french || 'une invocation';
+      sendPushNotification({
+        title: '📝 Nouvelle demande de validation',
+        body: `${firstName} demande la validation de ${invocName}`,
+        type: 'admin',
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['user-invocation-validation-requests', user?.id] });

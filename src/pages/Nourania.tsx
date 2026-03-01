@@ -4,6 +4,7 @@ import { useSearchParams } from 'react-router-dom';
 import { Check, Lock, Play, FileText, Image as ImageIcon, File, ChevronDown, Moon } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { sendPushNotification } from '@/lib/pushHelper';
 import AppLayout from '@/components/layout/AppLayout';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
@@ -170,6 +171,17 @@ const Nourania = () => {
         .from('nourania_validation_requests')
         .insert({ user_id: user.id, lesson_id: lessonId });
       if (error) throw error;
+      
+      // Send push notification to admin
+      const { data: profile } = await supabase.from('profiles').select('full_name').eq('user_id', user.id).maybeSingle();
+      const { data: lesson } = await supabase.from('nourania_lessons').select('title_french').eq('id', lessonId).maybeSingle();
+      const firstName = profile?.full_name?.split(' ')[0] || 'Un élève';
+      const lessonName = lesson?.title_french || 'une leçon';
+      sendPushNotification({
+        title: '📝 Nouvelle demande de validation',
+        body: `${firstName} demande la validation de ${lessonName}`,
+        type: 'admin',
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['nourania-validation-requests'] });

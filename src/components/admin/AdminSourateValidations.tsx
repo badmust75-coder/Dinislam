@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { sendPushNotification } from '@/lib/pushHelper';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -89,6 +90,15 @@ const AdminSourateValidations = ({ onBack }: AdminSourateValidationsProps) => {
     },
     onSuccess: (_, request) => {
       toast({ title: `Sourate ${request.sourate?.name_french || ''} validée pour ${request.profile?.full_name || 'l\'élève'}` });
+      
+      // Notify student
+      sendPushNotification({
+        title: '⭐ Félicitations !',
+        body: `Ton professeur a validé ${request.sourate?.name_french || 'ta sourate'} ! Continue comme ça !`,
+        type: 'user',
+        userId: request.user_id,
+      });
+      
       queryClient.invalidateQueries({ queryKey: ['admin-sourate-validations'] });
     },
     onError: () => {

@@ -17,6 +17,7 @@ import {
 } from '@/components/ui/tooltip';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
+import { sendPushNotification } from '@/lib/pushHelper';
 import { useToast } from '@/hooks/use-toast';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
@@ -161,6 +162,16 @@ const MessagingDialog = ({ open, onOpenChange, onMessagesRead }: MessagingDialog
         user_id: user.id, message: message.trim(), sender_type: 'user', message_type: 'text',
       });
       if (error) throw error;
+      
+      // Send push notification to admin
+      const { data: profile } = await supabase.from('profiles').select('full_name').eq('user_id', user.id).maybeSingle();
+      const firstName = profile?.full_name?.split(' ')[0] || 'Un élève';
+      sendPushNotification({
+        title: `✉️ Message de ${firstName}`,
+        body: `${firstName} t'a envoyé un message`,
+        type: 'admin',
+      });
+      
       toast({ title: 'Message envoyé', description: 'Votre message a été transmis à l\'administrateur' });
       setMessage('');
       refetch();
@@ -190,6 +201,15 @@ const MessagingDialog = ({ open, onOpenChange, onMessagesRead }: MessagingDialog
         message_type: 'audio', audio_url: urlData.publicUrl,
       });
       if (error) throw error;
+
+      // Send push notification to admin
+      const { data: profile } = await supabase.from('profiles').select('full_name').eq('user_id', user.id).maybeSingle();
+      const firstName = profile?.full_name?.split(' ')[0] || 'Un élève';
+      sendPushNotification({
+        title: `✉️ Message de ${firstName}`,
+        body: `${firstName} t'a envoyé un message audio`,
+        type: 'admin',
+      });
 
       toast({ title: 'Audio envoyé ✓' });
       refetch();

@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Mail, MailOpen, Send, User, ArrowLeft, Search, Music } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import { sendPushNotification } from '@/lib/pushHelper';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import AudioPlayer from '@/components/audio/AudioPlayer';
@@ -133,6 +134,15 @@ const AdminMessaging = React.forwardRef<HTMLDivElement>((_, ref) => {
         sender_type: 'admin', message_type: 'text',
       });
       if (error) throw error;
+      
+      // Send push notification to student
+      sendPushNotification({
+        title: '✉️ Nouveau message',
+        body: 'Tu as reçu un nouveau message de ton professeur !',
+        type: 'user',
+        userId: selectedConversation.user_id,
+      });
+      
       toast({ title: 'Réponse envoyée' });
       setReplyMessage('');
       refetchMessages();
@@ -158,6 +168,15 @@ const AdminMessaging = React.forwardRef<HTMLDivElement>((_, ref) => {
         sender_type: 'admin', message_type: 'audio', audio_url: urlData.publicUrl,
       });
       if (error) throw error;
+      
+      // Send push notification to student
+      sendPushNotification({
+        title: '✉️ Nouveau message',
+        body: 'Tu as reçu un nouveau message audio de ton professeur !',
+        type: 'user',
+        userId: selectedConversation.user_id,
+      });
+      
       toast({ title: 'Audio envoyé ✓' });
       refetchMessages();
     } catch (error) {

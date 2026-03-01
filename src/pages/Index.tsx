@@ -12,6 +12,7 @@ import { cn } from '@/lib/utils';
 import { LucideIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { requestOneSignalPermission, isOneSignalReady } from '@/lib/notifications';
+import { sendPushNotification } from '@/lib/pushHelper';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
@@ -42,14 +43,23 @@ const Index = () => {
   });
 
   const toggleActiveMutation = useMutation({
-    mutationFn: async ({ id, is_active }: { id: string; is_active: boolean }) => {
+    mutationFn: async ({ id, is_active, title }: { id: string; is_active: boolean; title?: string }) => {
       const { error } = await supabase.from('learning_modules').update({ is_active }).eq('id', id);
       if (error) throw error;
+      return { is_active, title };
     },
-    onSuccess: (_, { is_active }) => {
+    onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ['learning-modules'] });
       queryClient.invalidateQueries({ queryKey: ['admin-learning-modules'] });
-      toast.success(is_active ? 'Module affiché aux élèves' : 'Module masqué aux élèves');
+      toast.success(result.is_active ? 'Module affiché aux élèves' : 'Module masqué aux élèves');
+      
+      if (result.is_active && result.title) {
+        sendPushNotification({
+          title: '🌟 Nouvelle activité disponible !',
+          body: `Salam ! Le module ${result.title} est maintenant disponible sur Dini Bismillah !`,
+          type: 'broadcast',
+        });
+      }
     },
     onError: () => toast.error('Erreur lors de la mise à jour'),
   });
@@ -61,7 +71,7 @@ const Index = () => {
       if (!user) return null;
       const { data, error } = await supabase
         .from('profiles')
-        .select('full_name')
+        .select('full_name, notification_prompt_dismissed, notification_prompt_later_count, notification_prompt_later_at')
         .eq('user_id', user.id)
         .maybeSingle();
       if (error) throw error;
@@ -80,29 +90,48 @@ const Index = () => {
     }
   }, [profile, profileLoading, user]);
 
-  // Check notification permission and show banner if "default"
-  // Also auto optIn if user is logged in
+  // Check notification permission and show banner with smart logic
   useEffect(() => {
-    if (user && 'Notification' in window) {
+    if (user && 'Notification' in window && profile) {
+      const dismissed = (profile as any).notification_prompt_dismissed;
+      const laterCount = (profile as any).notification_prompt_later_count || 0;
+      const laterAt = (profile as any).notification_prompt_later_at;
+
+      // Never show if accepted or if permission already granted
+      if (dismissed === 'accepted' || Notification.permission === 'granted') {
+        setShowNotifBanner(false);
+        // Auto optIn if permission already granted
+        if (Notification.permission === 'granted') {
+          (window as any).OneSignalDeferred = (window as any).OneSignalDeferred || [];
+          (window as any).OneSignalDeferred.push(async function(OneSignal: any) {
+            try {
+              if (OneSignal.User?.PushSubscription && !OneSignal.User.PushSubscription.optedIn) {
+                await OneSignal.User.PushSubscription.optIn();
+              }
+            } catch (e: any) {
+              console.error('[OneSignal] Auto optIn error:', e.message);
+            }
+          });
+        }
+        return;
+      }
+
+      // If clicked "later" 3+ times, wait 7 days
+      if (laterCount >= 3 && laterAt) {
+        const sevenDaysLater = new Date(laterAt);
+        sevenDaysLater.setDate(sevenDaysLater.getDate() + 7);
+        if (new Date() < sevenDaysLater) {
+          setShowNotifBanner(false);
+          return;
+        }
+      }
+
+      // Show banner if permission is default
       if (Notification.permission === 'default') {
         setShowNotifBanner(true);
       }
-      // Auto optIn if permission already granted
-      if (Notification.permission === 'granted') {
-        (window as any).OneSignalDeferred = (window as any).OneSignalDeferred || [];
-        (window as any).OneSignalDeferred.push(async function(OneSignal: any) {
-          try {
-            if (OneSignal.User?.PushSubscription && !OneSignal.User.PushSubscription.optedIn) {
-              await OneSignal.User.PushSubscription.optIn();
-              console.log('[OneSignal] Auto opted-in on Index load');
-            }
-          } catch (e: any) {
-            console.error('[OneSignal] Auto optIn error:', e.message);
-          }
-        });
-      }
     }
-  }, [user]);
+  }, [user, profile]);
 
   const handleActivateNotifications = async () => {
     if (!user) return;
@@ -111,6 +140,9 @@ const Index = () => {
       const granted = await requestOneSignalPermission();
       if (granted) {
         toast.success('Notifications activées !');
+        // Mark as accepted in DB
+        await supabase.from('profiles').update({ notification_prompt_dismissed: 'accepted' }).eq('user_id', user.id);
+        queryClient.invalidateQueries({ queryKey: ['profile', user.id] });
       } else {
         toast.info('Permission refusée');
       }
@@ -119,6 +151,18 @@ const Index = () => {
       toast.error('Erreur : ' + e.message);
     }
     setActivatingNotif(false);
+  };
+
+  const handleDismissNotifBanner = async () => {
+    if (!user) return;
+    setShowNotifBanner(false);
+    const laterCount = ((profile as any)?.notification_prompt_later_count || 0) + 1;
+    await supabase.from('profiles').update({
+      notification_prompt_dismissed: 'later',
+      notification_prompt_later_count: laterCount,
+      notification_prompt_later_at: new Date().toISOString(),
+    }).eq('user_id', user.id);
+    queryClient.invalidateQueries({ queryKey: ['profile', user.id] });
   };
 
   const handleWelcomeComplete = () => {
@@ -146,7 +190,7 @@ const Index = () => {
                 <p className="text-sm font-medium text-foreground">🔔 Active les notifications pour ne rien manquer !</p>
               </div>
               <div className="flex gap-2 shrink-0">
-                <Button size="sm" variant="ghost" onClick={() => setShowNotifBanner(false)}>
+                <Button size="sm" variant="ghost" onClick={handleDismissNotifBanner}>
                   Plus tard
                 </Button>
                 <Button size="sm" onClick={handleActivateNotifications} disabled={activatingNotif}>
@@ -291,7 +335,7 @@ const Index = () => {
                           <DropdownMenuItem
                             onClick={(e) => {
                               e.stopPropagation();
-                              toggleActiveMutation.mutate({ id: mod.id, is_active: !mod.is_active });
+                              toggleActiveMutation.mutate({ id: mod.id, is_active: !mod.is_active, title: mod.title });
                             }}
                           >
                             {mod.is_active

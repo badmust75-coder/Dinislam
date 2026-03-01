@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import AdminOnlineUsers from '@/components/admin/AdminOnlineUsers';
+import ScheduledNotifications from '@/components/admin/ScheduledNotifications';
 import { format, subDays, startOfWeek, startOfMonth } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import {
@@ -416,6 +417,9 @@ const Monitoring = () => {
             )}
           </CardContent>
         </Card>
+
+        {/* SECTION 2.5: Scheduled Notifications */}
+        <ScheduledNotifications />
 
         {/* SECTION 3: Validations en attente */}
         <Card>

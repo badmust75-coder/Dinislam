@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { sendPushNotification } from '@/lib/pushHelper';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
@@ -100,6 +101,15 @@ const AdminInvocationValidations = ({ onBack }: AdminInvocationValidationsProps)
         title: '✅ Invocation validée !',
         description: `${request.invocation?.title_french || 'Invocation'} validée pour ${request.profile?.full_name || 'l\'élève'}`,
       });
+      
+      // Notify student
+      sendPushNotification({
+        title: '⭐ Félicitations !',
+        body: `Ton professeur a validé ${request.invocation?.title_french || 'ton invocation'} ! Continue comme ça !`,
+        type: 'user',
+        userId: request.user_id,
+      });
+      
       queryClient.invalidateQueries({ queryKey: ['admin-invocation-validations'] });
       queryClient.invalidateQueries({ queryKey: ['admin-pending-invocations-count'] });
     },
