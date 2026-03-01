@@ -2,6 +2,7 @@ import { useState, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { sendPushNotification } from '@/lib/pushHelper';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -176,13 +177,23 @@ const AdminModules = ({ onBack }: AdminModulesProps) => {
   });
 
   const toggleActiveMutation = useMutation({
-    mutationFn: async ({ id, is_active }: { id: string; is_active: boolean }) => {
+    mutationFn: async ({ id, is_active, title }: { id: string; is_active: boolean; title?: string }) => {
       const { error } = await supabase.from('learning_modules').update({ is_active }).eq('id', id);
       if (error) throw error;
+      return { is_active, title };
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ['admin-learning-modules'] });
       queryClient.invalidateQueries({ queryKey: ['learning-modules'] });
+      
+      // Notify all students when module is activated
+      if (result.is_active && result.title) {
+        sendPushNotification({
+          title: '🌟 Nouvelle activité disponible !',
+          body: `Salam ! Le module ${result.title} est maintenant disponible sur Dini Bismillah !`,
+          type: 'broadcast',
+        });
+      }
     },
   });
 
