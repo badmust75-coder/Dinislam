@@ -208,6 +208,24 @@ export type Database = {
         }
         Relationships: []
       }
+      connexion_logs: {
+        Row: {
+          connected_at: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          connected_at?: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          connected_at?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       dashboard_card_visibility: {
         Row: {
           card_id: string

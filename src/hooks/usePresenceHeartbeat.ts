@@ -22,6 +22,12 @@ const usePresenceHeartbeat = () => {
     // Initial heartbeat
     updatePresence();
 
+    // Log connexion (once per session)
+    (supabase as any)
+      .from('connexion_logs')
+      .insert({ user_id: user.id })
+      .then(() => {});
+
     // Heartbeat every 60 seconds
     const interval = setInterval(updatePresence, 60_000);
 
