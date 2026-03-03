@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -14,15 +14,7 @@ serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const oneSignalApiKey = Deno.env.get('ONESIGNAL_API_KEY') || '';
-    const oneSignalAppId = 'c3387e75-7457-4db6-bbe1-541307fc5bea';
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
-    if (!oneSignalApiKey) {
-      return new Response(JSON.stringify({ error: 'ONESIGNAL_API_KEY not configured' }), {
-        status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
 
     const now = new Date();
     const today = now.toISOString().split('T')[0];
@@ -30,7 +22,7 @@ serve(async (req) => {
     const currentMinute = now.getUTCMinutes().toString().padStart(2, '0');
     const currentTime = `${currentHour}:${currentMinute}`;
 
-    // Fetch active scheduled notifications for today within the time window (±5 min tolerance)
+    // Fetch active scheduled notifications for today
     const { data: notifications, error } = await supabase
       .from('scheduled_notifications')
       .select('*')
@@ -43,65 +35,40 @@ serve(async (req) => {
     let totalSent = 0;
 
     for (const notif of (notifications || [])) {
-      // Check if send_time matches (within 5-minute window)
       const sendTime = notif.send_time?.substring(0, 5);
       if (!sendTime) continue;
 
+      // Strict time check (±5 min)
       const [sendHour, sendMinute] = sendTime.split(':').map(Number);
       const [currHour, currMinute] = currentTime.split(':').map(Number);
       const sendTotal = sendHour * 60 + sendMinute;
       const currTotal = currHour * 60 + currMinute;
       if (Math.abs(sendTotal - currTotal) > 5) continue;
 
-      // Determine recipients
-      let targetAliases: string[] | null = null;
-      if (notif.recipients !== 'all' && Array.isArray(notif.recipients)) {
-        targetAliases = notif.recipients;
-        if (targetAliases.length === 0) continue;
-      }
-
-      // Build OneSignal payload
-      const osBody: any = {
-        app_id: oneSignalAppId,
-        headings: { en: `📅 ${notif.module}`, fr: `📅 ${notif.module}` },
-        contents: { en: notif.message, fr: notif.message },
-        url: 'https://dini-ramadan-learn.lovable.app',
-        chrome_web_icon: '/icon-192.png',
-      };
-
-      if (targetAliases) {
-        osBody.include_aliases = { external_id: targetAliases };
-        osBody.target_channel = 'push';
-      } else {
-        osBody.included_segments = ['All'];
-      }
-
-      const osResponse = await fetch('https://api.onesignal.com/notifications', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Key ${oneSignalApiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(osBody),
-      });
-
-      const osResult = await osResponse.text();
-      let osData: any = {};
-      try { osData = JSON.parse(osResult); } catch { osData = { raw: osResult }; }
-
-      const sent = osData.recipients || 0;
-      totalSent += sent;
-
-      // Log to notification_history
-      await supabase.from('notification_history').insert({
+      // Call the send-push-notification edge function (now VAPID-based)
+      const pushBody: any = {
         title: `📅 ${notif.module}`,
         body: notif.message,
+        tag: `scheduled-${notif.id}`,
         type: 'scheduled',
-        total_recipients: sent,
-        successful_sends: sent,
-        failed_sends: 0,
-        expired_cleaned: 0,
-      });
+      };
+
+      // Determine recipients
+      if (notif.recipients !== 'all' && Array.isArray(notif.recipients)) {
+        if (notif.recipients.length === 0) continue;
+        pushBody.userIds = notif.recipients;
+      } else {
+        pushBody.sendToAll = true;
+      }
+
+      // Call the VAPID-based send function internally
+      const { data: pushResult, error: pushError } = await supabase.functions.invoke(
+        'send-push-notification',
+        { body: pushBody }
+      );
+
+      const sent = pushResult?.sent || 0;
+      totalSent += sent;
 
       console.log(`Scheduled notification ${notif.id}: sent to ${sent} recipients`);
     }
