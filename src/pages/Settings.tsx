@@ -31,8 +31,8 @@ const Settings = () => {
   const [ishaReminder, setIshaReminder] = useState(true);
   const [loading, setLoading] = useState(true);
   const [testingSend, setTestingSend] = useState(false);
+  const { isSubscribed, isSupported, isLoading: pushLoading, error: pushError, subscribe: pushSubscribe, unsubscribe: pushUnsubscribe } = useWebPush();
 
-  const handleTestPush = async () => {
     setTestingSend(true);
     try {
       const { data, error } = await supabase.functions.invoke('send-push-notification', {
