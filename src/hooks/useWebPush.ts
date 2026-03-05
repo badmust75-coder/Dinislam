@@ -9,6 +9,15 @@ interface PushSubscriptionState {
   error: string | null;
 }
 
+function urlBase64ToUint8Array(base64String: string): Uint8Array {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const rawData = atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+  for (let i = 0; i < rawData.length; ++i) outputArray[i] = rawData.charCodeAt(i);
+  return outputArray;
+}
+
 export function useWebPush() {
   const { user } = useAuth();
   const [state, setState] = useState<PushSubscriptionState>({
@@ -19,37 +28,10 @@ export function useWebPush() {
   });
 
   const checkSupport = useCallback(() => {
-    const supported = 'serviceWorker' in navigator && 
-           'PushManager' in window && 
-           'Notification' in window;
-    console.log('[WebPush] Support check:', { serviceWorker: 'serviceWorker' in navigator, PushManager: 'PushManager' in window, Notification: 'Notification' in window, supported });
+    const supported = 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+    console.log('[WebPush] Support:', supported);
     return supported;
   }, []);
-
-  const getVapidKey = useCallback(async (): Promise<string | null> => {
-    try {
-      console.log('[WebPush] Fetching VAPID key...');
-      const { data, error } = await supabase.functions.invoke('get-vapid-key');
-      if (error) throw error;
-      console.log('[WebPush] VAPID key received:', data?.publicKey ? 'yes' : 'no');
-      return data?.publicKey || null;
-    } catch (err) {
-      console.error('[WebPush] Failed to get VAPID key:', err);
-      return null;
-    }
-  }, []);
-
-  const urlBase64ToUint8Array = (base64String: string): Uint8Array => {
-    const padding = '='.repeat((4 - base64String.length % 4) % 4);
-    const base64 = (base64String + padding)
-      .replace(/-/g, '+').replace(/_/g, '/');
-    const rawData = atob(base64);
-    const outputArray = new Uint8Array(rawData.length);
-    for (let i = 0; i < rawData.length; ++i) {
-      outputArray[i] = rawData.charCodeAt(i);
-    }
-    return outputArray;
-  };
 
   const checkSubscription = useCallback(async () => {
     if (!checkSupport()) {
@@ -58,10 +40,12 @@ export function useWebPush() {
     }
     setState(s => ({ ...s, isSupported: true }));
     try {
-      const registration = await navigator.serviceWorker.ready;
-      console.log('[WebPush] SW ready, checking existing subscription...');
-      const subscription = await (registration as any).pushManager.getSubscription();
-      console.log('[WebPush] Existing subscription:', subscription ? 'found' : 'none');
+      const registration = await navigator.serviceWorker.getRegistration();
+      if (!registration) {
+        setState(s => ({ ...s, isSubscribed: false, isLoading: false }));
+        return;
+      }
+      const subscription = await registration.pushManager?.getSubscription();
       if (subscription && user) {
         const { data } = await supabase
           .from('push_subscriptions')
@@ -69,164 +53,146 @@ export function useWebPush() {
           .eq('endpoint', subscription.endpoint)
           .eq('user_id', user.id)
           .maybeSingle();
-        console.log('[WebPush] DB record:', data ? 'found' : 'not found');
         setState(s => ({ ...s, isSubscribed: !!data, isLoading: false }));
       } else {
         setState(s => ({ ...s, isSubscribed: false, isLoading: false }));
       }
     } catch (err) {
       console.error('[WebPush] checkSubscription error:', err);
-      setState(s => ({ ...s, isLoading: false, error: 'Erreur vérification' }));
+      setState(s => ({ ...s, isLoading: false }));
     }
   }, [user, checkSupport]);
 
+  // subscribe() is designed to be called directly from a user tap/click handler.
+  // On iOS Safari PWA, Notification.requestPermission() MUST be in the user gesture callstack.
   const subscribe = useCallback(async (): Promise<boolean> => {
     if (!user) {
-      console.error('[WebPush] No user, cannot subscribe');
+      console.error('[WebPush] No user');
       return false;
     }
     setState(s => ({ ...s, isLoading: true, error: null }));
     try {
-      // Step 0: Check iOS standalone mode
+      // ── Step 0: iOS standalone check ──
       const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
       const isStandalone = (window.navigator as any).standalone === true || window.matchMedia('(display-mode: standalone)').matches;
-      console.log('[WebPush] Step 0: Platform check:', { isIOS, isStandalone, userAgent: navigator.userAgent });
-      
+      console.log('[WebPush] Step 0 — iOS:', isIOS, 'standalone:', isStandalone);
       if (isIOS && !isStandalone) {
-        const err = '❌ Sur iOS, ajoute l\'app à l\'écran d\'accueil d\'abord (Partager → Sur l\'écran d\'accueil)';
-        console.error('[WebPush]', err);
-        setState(s => ({ ...s, isLoading: false, error: err }));
-        return false;
+        throw new Error('❌ Sur iOS, ajoute l\'app à l\'écran d\'accueil d\'abord (Partager → Sur l\'écran d\'accueil)');
       }
 
-      // Step 1: Check Notification API exists
+      // ── Step 1: Request permission IMMEDIATELY (must be in user gesture) ──
       if (!('Notification' in window)) {
-        const err = '❌ Les notifications ne sont pas supportées par ce navigateur';
-        console.error('[WebPush]', err);
-        setState(s => ({ ...s, isLoading: false, error: err }));
-        return false;
+        throw new Error('❌ API Notification non disponible dans ce navigateur');
       }
-
-      // Step 2: Request permission explicitly
-      console.log('[WebPush] Step 1: Current permission:', Notification.permission);
-      let permission = Notification.permission;
+      console.log('[WebPush] Step 1 — Permission actuelle:', Notification.permission);
+      const permission = await Notification.requestPermission();
+      console.log('[WebPush] Step 1 — Permission après demande:', permission);
       if (permission !== 'granted') {
-        console.log('[WebPush] Requesting permission...');
-        permission = await Notification.requestPermission();
-        console.log('[WebPush] Permission result:', permission);
-      }
-      if (permission !== 'granted') {
-        const err = permission === 'denied' 
-          ? '❌ Permission refusée — va dans Réglages > Safari > Notifications pour autoriser'
-          : '❌ Permission non accordée par le navigateur';
-        console.error('[WebPush]', err);
-        setState(s => ({ ...s, isLoading: false, error: err }));
-        return false;
+        throw new Error(
+          permission === 'denied'
+            ? '❌ Permission refusée par iOS — va dans Réglages > Safari > Notifications pour autoriser'
+            : '❌ Permission non accordée par le navigateur'
+        );
       }
 
-      // Step 3: Check service worker
-      if (!('serviceWorker' in navigator)) {
-        const err = '❌ Service Worker non disponible';
-        console.error('[WebPush]', err);
-        setState(s => ({ ...s, isLoading: false, error: err }));
-        return false;
+      // ── Step 2: Ensure service worker is registered ──
+      console.log('[WebPush] Step 2 — Vérification Service Worker...');
+      let registration = await navigator.serviceWorker.getRegistration();
+      if (!registration) {
+        console.log('[WebPush] Step 2 — Enregistrement SW /sw.js...');
+        registration = await navigator.serviceWorker.register('/sw.js');
       }
+      // Wait until SW is active
+      const reg = await navigator.serviceWorker.ready;
+      console.log('[WebPush] Step 2 — SW actif, scope:', reg.scope);
 
-      // Step 4: Get VAPID key
-      console.log('[WebPush] Step 2: Getting VAPID key...');
-      const vapidKey = await getVapidKey();
-      if (!vapidKey) {
-        const err = '❌ Clé VAPID non disponible — vérifiez les secrets';
-        console.error('[WebPush]', err);
-        setState(s => ({ ...s, isLoading: false, error: err }));
-        return false;
-      }
-      console.log('[WebPush] VAPID key OK, length:', vapidKey.length);
+      // ── Step 3: Get VAPID public key ──
+      console.log('[WebPush] Step 3 — Récupération clé VAPID...');
+      const { data: vapidData, error: vapidError } = await supabase.functions.invoke('get-vapid-key');
+      if (vapidError) throw new Error(`❌ Erreur get-vapid-key: ${vapidError.message}`);
+      const vapidKey = vapidData?.publicKey;
+      if (!vapidKey) throw new Error('❌ Clé VAPID non reçue du serveur');
+      console.log('[WebPush] Step 3 — VAPID OK:', vapidKey.substring(0, 10) + '...');
 
-      // Step 5: Get SW registration & subscribe to push
-      console.log('[WebPush] Step 3: Waiting for SW ready...');
-      const registration = await navigator.serviceWorker.ready;
-      console.log('[WebPush] SW ready, scope:', registration.scope);
-      
-      // Unsubscribe any existing subscription first to avoid conflicts
-      const existingSub = await (registration as any).pushManager.getSubscription();
+      // ── Step 4: Unsubscribe existing then subscribe to push ──
+      const existingSub = await reg.pushManager.getSubscription();
       if (existingSub) {
-        console.log('[WebPush] Removing existing subscription first...');
+        console.log('[WebPush] Step 4 — Suppression ancien abonnement...');
         await existingSub.unsubscribe();
       }
-
-      const keyArray = urlBase64ToUint8Array(vapidKey);
-      console.log('[WebPush] Calling pushManager.subscribe()...');
-      const subscription = await (registration as any).pushManager.subscribe({
+      console.log('[WebPush] Step 4 — pushManager.subscribe()...');
+      const subscription = await reg.pushManager.subscribe({
         userVisibleOnly: true,
-        applicationServerKey: keyArray
+        applicationServerKey: urlBase64ToUint8Array(vapidKey)
       });
-      console.log('[WebPush] Push subscription created:', subscription.endpoint);
+      console.log('[WebPush] Step 4 — Abonnement créé:', subscription.endpoint.substring(0, 60) + '...');
 
-      // Step 6: Extract keys and save to DB
+      // ── Step 5: Extract keys ──
       const subJson = subscription.toJSON();
       const keys = subJson.keys;
-      console.log('[WebPush] Step 4: Subscription keys:', { p256dh: !!keys?.p256dh, auth: !!keys?.auth });
-      
       if (!keys?.p256dh || !keys?.auth) {
-        throw new Error('❌ Clés de souscription invalides (p256dh ou auth manquant)');
+        throw new Error('❌ Clés p256dh/auth manquantes dans l\'abonnement');
       }
+      console.log('[WebPush] Step 5 — Clés OK: p256dh=' + !!keys.p256dh + ' auth=' + !!keys.auth);
 
-      console.log('[WebPush] Saving to push_subscriptions...');
-      const { data: upsertData, error } = await supabase
+      // ── Step 6: Upsert to DB ──
+      console.log('[WebPush] Step 6 — Sauvegarde en base...');
+      const { error: upsertError } = await supabase
         .from('push_subscriptions')
         .upsert({
           user_id: user.id,
           endpoint: subscription.endpoint,
           p256dh: keys.p256dh,
           auth: keys.auth
-        }, { onConflict: 'user_id,endpoint' })
-        .select('id');
+        }, { onConflict: 'user_id,endpoint' });
 
-      if (error) {
-        console.error('[WebPush] DB save error:', error);
-        throw new Error(`❌ Erreur sauvegarde: ${error.message}`);
+      if (upsertError) {
+        throw new Error(`❌ Erreur sauvegarde DB: ${upsertError.message}`);
       }
 
-      // Verify the row actually exists
-      const { data: verifyData } = await supabase
+      // ── Step 7: Verify row exists in DB ──
+      console.log('[WebPush] Step 7 — Vérification en base...');
+      const { data: verifyRow, error: verifyError } = await supabase
         .from('push_subscriptions')
         .select('id')
         .eq('user_id', user.id)
         .eq('endpoint', subscription.endpoint)
         .maybeSingle();
 
-      if (!verifyData) {
-        console.error('[WebPush] DB verification failed - row not found after upsert');
-        throw new Error('❌ L\'abonnement n\'a pas été enregistré en base');
+      if (verifyError) {
+        throw new Error(`❌ Erreur vérification DB: ${verifyError.message}`);
+      }
+      if (!verifyRow) {
+        throw new Error('❌ Ligne non trouvée en base après upsert — RLS bloque peut-être l\'insertion');
       }
 
-      console.log('[WebPush] ✅ Subscription verified in DB, id:', verifyData.id);
-      setState(s => ({ ...s, isSubscribed: true, isLoading: false }));
+      console.log('[WebPush] ✅ Tout OK — id:', verifyRow.id);
+      setState(s => ({ ...s, isSubscribed: true, isLoading: false, error: null }));
       return true;
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      console.error('[WebPush] Subscribe failed:', message);
+      console.error('[WebPush] ❌ Échec:', message);
       setState(s => ({ ...s, isLoading: false, error: message }));
       return false;
     }
-  }, [user, getVapidKey]);
+  }, [user]);
 
   const unsubscribe = useCallback(async (): Promise<boolean> => {
     if (!user) return false;
     setState(s => ({ ...s, isLoading: true }));
     try {
-      const registration = await navigator.serviceWorker.ready;
-      const subscription = await (registration as any).pushManager.getSubscription();
-      if (subscription) {
-        console.log('[WebPush] Unsubscribing...');
-        await subscription.unsubscribe();
-        await supabase
-          .from('push_subscriptions')
-          .delete()
-          .eq('endpoint', subscription.endpoint)
-          .eq('user_id', user.id);
-        console.log('[WebPush] Unsubscribed successfully');
+      const registration = await navigator.serviceWorker.getRegistration();
+      if (registration) {
+        const subscription = await registration.pushManager?.getSubscription();
+        if (subscription) {
+          await subscription.unsubscribe();
+          await supabase
+            .from('push_subscriptions')
+            .delete()
+            .eq('endpoint', subscription.endpoint)
+            .eq('user_id', user.id);
+          console.log('[WebPush] Unsubscribed');
+        }
       }
       setState(s => ({ ...s, isSubscribed: false, isLoading: false }));
       return true;
