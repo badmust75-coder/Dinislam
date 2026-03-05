@@ -13,34 +13,66 @@ const PushAutoSubscribe = () => {
   const [isIOS, setIsIOS] = useState(false);
   const [subscribing, setSubscribing] = useState(false);
   const autoTriedRef = useRef(false);
-
-  // Check if user has a push subscription in DB
-  useEffect(() => {
-    if (!user || !isSupported || isSubscribed || isLoading) return;
-
-    const checkDB = async () => {
-      const { data } = await supabase
-        .from('push_subscriptions')
-        .select('id')
-        .eq('user_id', user.id)
-        .maybeSingle();
-
-      if (!data) {
-        setNeedsSubscription(true);
-      }
-    };
-    checkDB();
-  }, [user, isSupported, isSubscribed, isLoading]);
+  const checkDoneRef = useRef(false);
 
   // Detect iOS
   useEffect(() => {
     setIsIOS(/iPad|iPhone|iPod/.test(navigator.userAgent));
   }, []);
 
-  // Auto-subscribe on non-iOS (no user gesture needed on Android/desktop)
+  // Check BOTH browser state AND DB state
+  useEffect(() => {
+    if (!user || !isSupported || isLoading || checkDoneRef.current) return;
+    checkDoneRef.current = true;
+
+    const checkBrowserAndDB = async () => {
+      try {
+        // 1. Check browser-side: permission + active pushManager subscription
+        const permissionGranted = 'Notification' in window && Notification.permission === 'granted';
+        let hasBrowserSub = false;
+
+        if (permissionGranted) {
+          const registration = await navigator.serviceWorker.getRegistration();
+          if (registration) {
+            const sub = await registration.pushManager?.getSubscription();
+            hasBrowserSub = !!sub;
+          }
+        }
+
+        // 2. Check DB-side
+        const { data: dbRow } = await supabase
+          .from('push_subscriptions')
+          .select('id')
+          .eq('user_id', user.id)
+          .maybeSingle();
+
+        console.log('[PushAuto] permission:', Notification.permission, 'browserSub:', hasBrowserSub, 'dbRow:', !!dbRow);
+
+        // 3. If browser has no active sub but DB has stale row → clean it
+        if (!hasBrowserSub && dbRow) {
+          console.log('[PushAuto] Cleaning stale DB subscription after reinstall');
+          await supabase
+            .from('push_subscriptions')
+            .delete()
+            .eq('user_id', user.id);
+        }
+
+        // 4. Need subscription if permission not granted OR no browser sub
+        if (!permissionGranted || !hasBrowserSub) {
+          setNeedsSubscription(true);
+        }
+      } catch (err) {
+        console.error('[PushAuto] Check error:', err);
+        setNeedsSubscription(true);
+      }
+    };
+
+    checkBrowserAndDB();
+  }, [user, isSupported, isLoading]);
+
+  // Auto-subscribe on non-iOS if permission already granted (no gesture needed)
   useEffect(() => {
     if (!needsSubscription || isIOS || autoTriedRef.current || isSubscribed) return;
-    // Only auto-try if permission is already granted
     if ('Notification' in window && Notification.permission === 'granted') {
       autoTriedRef.current = true;
       subscribe().then((ok) => {
@@ -55,7 +87,6 @@ const PushAutoSubscribe = () => {
   // Hide if already subscribed or not needed
   if (!needsSubscription || isSubscribed || !isSupported) return null;
 
-  // On non-iOS with permission !== granted, also show button
   const handleTap = async () => {
     setSubscribing(true);
     const ok = await subscribe();
@@ -67,19 +98,19 @@ const PushAutoSubscribe = () => {
   };
 
   return (
-    <div className="bg-primary/10 border border-primary/30 rounded-xl p-4 flex items-center gap-3 animate-fade-in">
-      <Bell className="h-6 w-6 text-primary shrink-0" />
+    <div className="bg-primary text-primary-foreground rounded-xl p-4 flex items-center gap-3 animate-fade-in shadow-lg">
+      <Bell className="h-6 w-6 shrink-0" />
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium text-foreground">
-          🔔 Activer les notifications push
+        <p className="text-sm font-bold">
+          🔔 Activer les notifications
         </p>
-        <p className="text-xs text-muted-foreground">
+        <p className="text-xs opacity-90">
           {isIOS
             ? 'Touche le bouton pour autoriser les notifications'
             : 'Recevez les rappels et nouvelles activités'}
         </p>
       </div>
-      <Button size="sm" onClick={handleTap} disabled={subscribing}>
+      <Button size="sm" variant="secondary" onClick={handleTap} disabled={subscribing}>
         {subscribing ? '...' : 'Activer'}
       </Button>
     </div>
