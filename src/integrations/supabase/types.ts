@@ -1570,6 +1570,62 @@ export type Database = {
         }
         Relationships: []
       }
+      student_group_members: {
+        Row: {
+          created_at: string
+          group_id: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          group_id: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          group_id?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_group_members_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "student_groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      student_groups: {
+        Row: {
+          color: string
+          created_at: string
+          display_order: number
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          color?: string
+          created_at?: string
+          display_order?: number
+          id?: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          color?: string
+          created_at?: string
+          display_order?: number
+          id?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       student_ranking: {
         Row: {
           alphabet_points: number
