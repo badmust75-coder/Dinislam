@@ -89,6 +89,20 @@ const AdminMessagingDialog = ({ open, onOpenChange, onMessagesRead }: AdminMessa
     enabled: newMsgOpen || groupMsgOpen,
   });
 
+  // Fetch student groups
+  const { data: studentGroups = [] } = useQuery({
+    queryKey: ['student-groups-messaging'],
+    queryFn: async () => {
+      const { data: groups } = await (supabase as any).from('student_groups').select('*').order('display_order');
+      const { data: members } = await (supabase as any).from('student_group_members').select('group_id, user_id');
+      return (groups || []).map((g: any) => ({
+        ...g,
+        memberIds: (members || []).filter((m: any) => m.group_id === g.id).map((m: any) => m.user_id),
+      }));
+    },
+    enabled: groupMsgOpen,
+  });
+
   // Fetch top 3 ranking for group mode
   const { data: top3UserIds = [] } = useQuery({
     queryKey: ['admin-top3-ranking'],
