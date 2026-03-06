@@ -682,7 +682,7 @@ const AdminMessagingDialog = ({ open, onOpenChange, onMessagesRead }: AdminMessa
               </div>
             )}
 
-
+            <Textarea
               value={groupMsgText}
               onChange={(e) => setGroupMsgText(e.target.value)}
               placeholder="Votre message..."
