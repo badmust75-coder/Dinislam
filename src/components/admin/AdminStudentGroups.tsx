@@ -1,0 +1,360 @@
+import { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Badge } from '@/components/ui/badge';
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
+} from '@/components/ui/dialog';
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { Plus, MoreVertical, Pencil, Trash2, Users, Search, GripVertical } from 'lucide-react';
+import { toast } from 'sonner';
+
+const GROUP_COLORS = [
+  { value: 'bg-blue-500', label: 'Bleu', preview: 'bg-blue-500' },
+  { value: 'bg-emerald-500', label: 'Vert', preview: 'bg-emerald-500' },
+  { value: 'bg-amber-500', label: 'Orange', preview: 'bg-amber-500' },
+  { value: 'bg-rose-500', label: 'Rose', preview: 'bg-rose-500' },
+  { value: 'bg-purple-500', label: 'Violet', preview: 'bg-purple-500' },
+  { value: 'bg-cyan-500', label: 'Cyan', preview: 'bg-cyan-500' },
+  { value: 'bg-indigo-500', label: 'Indigo', preview: 'bg-indigo-500' },
+  { value: 'bg-pink-500', label: 'Pink', preview: 'bg-pink-500' },
+];
+
+interface StudentGroup {
+  id: string;
+  name: string;
+  color: string;
+  display_order: number;
+  memberCount: number;
+  members: { user_id: string; full_name: string | null; email: string | null }[];
+}
+
+const AdminStudentGroups = () => {
+  const queryClient = useQueryClient();
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingGroup, setEditingGroup] = useState<StudentGroup | null>(null);
+  const [groupName, setGroupName] = useState('');
+  const [groupColor, setGroupColor] = useState('bg-blue-500');
+  const [selectedStudents, setSelectedStudents] = useState<Set<string>>(new Set());
+  const [studentSearch, setStudentSearch] = useState('');
+  const [draggedId, setDraggedId] = useState<string | null>(null);
+
+  // Fetch groups with members
+  const { data: groups = [] } = useQuery({
+    queryKey: ['student-groups'],
+    queryFn: async () => {
+      const { data: groupsData, error } = await (supabase as any)
+        .from('student_groups')
+        .select('*')
+        .order('display_order');
+      if (error) throw error;
+
+      const { data: members } = await (supabase as any)
+        .from('student_group_members')
+        .select('group_id, user_id');
+
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('user_id, full_name, email')
+        .eq('is_approved', true);
+
+      const profileMap = new Map((profiles || []).map(p => [p.user_id, p]));
+
+      return (groupsData || []).map((g: any) => {
+        const groupMembers = (members || [])
+          .filter((m: any) => m.group_id === g.id)
+          .map((m: any) => {
+            const p = profileMap.get(m.user_id);
+            return { user_id: m.user_id, full_name: p?.full_name || null, email: p?.email || null };
+          });
+        return { ...g, memberCount: groupMembers.length, members: groupMembers } as StudentGroup;
+      });
+    },
+  });
+
+  // Fetch all students for selection
+  const { data: allStudents = [] } = useQuery({
+    queryKey: ['all-students-for-groups'],
+    queryFn: async () => {
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('user_id, full_name, email')
+        .eq('is_approved', true)
+        .order('full_name');
+      const { data: adminRoles } = await supabase.from('user_roles').select('user_id').eq('role', 'admin');
+      const adminIds = new Set((adminRoles || []).map(r => r.user_id));
+      return (profiles || []).filter(p => !adminIds.has(p.user_id));
+    },
+    enabled: dialogOpen,
+  });
+
+  const createOrUpdateMutation = useMutation({
+    mutationFn: async () => {
+      if (editingGroup) {
+        // Update
+        const { error } = await (supabase as any)
+          .from('student_groups')
+          .update({ name: groupName, color: groupColor, updated_at: new Date().toISOString() })
+          .eq('id', editingGroup.id);
+        if (error) throw error;
+
+        // Replace members
+        await (supabase as any).from('student_group_members').delete().eq('group_id', editingGroup.id);
+        if (selectedStudents.size > 0) {
+          const inserts = Array.from(selectedStudents).map(uid => ({ group_id: editingGroup.id, user_id: uid }));
+          const { error: e2 } = await (supabase as any).from('student_group_members').insert(inserts);
+          if (e2) throw e2;
+        }
+      } else {
+        // Create
+        const maxOrder = groups.length > 0 ? Math.max(...groups.map(g => g.display_order)) + 1 : 0;
+        const { data: newGroup, error } = await (supabase as any)
+          .from('student_groups')
+          .insert({ name: groupName, color: groupColor, display_order: maxOrder })
+          .select('id')
+          .single();
+        if (error) throw error;
+
+        if (selectedStudents.size > 0) {
+          const inserts = Array.from(selectedStudents).map(uid => ({ group_id: newGroup.id, user_id: uid }));
+          const { error: e2 } = await (supabase as any).from('student_group_members').insert(inserts);
+          if (e2) throw e2;
+        }
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['student-groups'] });
+      toast.success(editingGroup ? 'Groupe modifié' : 'Groupe créé');
+      closeDialog();
+    },
+    onError: () => toast.error('Erreur'),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (groupId: string) => {
+      const { error } = await (supabase as any).from('student_groups').delete().eq('id', groupId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['student-groups'] });
+      toast.success('Groupe supprimé');
+    },
+    onError: () => toast.error('Erreur'),
+  });
+
+  const reorderMutation = useMutation({
+    mutationFn: async (reordered: { id: string; display_order: number }[]) => {
+      for (const item of reordered) {
+        await (supabase as any).from('student_groups').update({ display_order: item.display_order }).eq('id', item.id);
+      }
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['student-groups'] }),
+  });
+
+  const closeDialog = () => {
+    setDialogOpen(false);
+    setEditingGroup(null);
+    setGroupName('');
+    setGroupColor('bg-blue-500');
+    setSelectedStudents(new Set());
+    setStudentSearch('');
+  };
+
+  const openEdit = (group: StudentGroup) => {
+    setEditingGroup(group);
+    setGroupName(group.name);
+    setGroupColor(group.color);
+    setSelectedStudents(new Set(group.members.map(m => m.user_id)));
+    setDialogOpen(true);
+  };
+
+  const handleDragStart = (id: string) => setDraggedId(id);
+
+  const handleDrop = (targetId: string) => {
+    if (!draggedId || draggedId === targetId) { setDraggedId(null); return; }
+    const reordered = [...groups];
+    const fromIdx = reordered.findIndex(g => g.id === draggedId);
+    const toIdx = reordered.findIndex(g => g.id === targetId);
+    const [moved] = reordered.splice(fromIdx, 1);
+    reordered.splice(toIdx, 0, moved);
+    const updates = reordered.map((g, i) => ({ id: g.id, display_order: i }));
+    reorderMutation.mutate(updates);
+    setDraggedId(null);
+  };
+
+  const filteredStudents = allStudents.filter(s => {
+    if (!studentSearch) return true;
+    const q = studentSearch.toLowerCase();
+    return s.full_name?.toLowerCase().includes(q) || s.email?.toLowerCase().includes(q);
+  });
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <h3 className="text-base font-semibold text-foreground flex items-center gap-2">
+          <Users className="h-4 w-4" /> Groupes
+        </h3>
+        <Button size="sm" onClick={() => setDialogOpen(true)}>
+          <Plus className="h-4 w-4 mr-1" /> Nouveau groupe
+        </Button>
+      </div>
+
+      {groups.length === 0 ? (
+        <p className="text-sm text-muted-foreground text-center py-4">Aucun groupe créé</p>
+      ) : (
+        <div className="grid grid-cols-2 gap-3">
+          {groups.map((group) => (
+            <Card
+              key={group.id}
+              draggable
+              onDragStart={() => handleDragStart(group.id)}
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={() => handleDrop(group.id)}
+              className={`cursor-grab active:cursor-grabbing transition-all ${
+                draggedId === group.id ? 'opacity-50 scale-95' : ''
+              }`}
+            >
+              <CardContent className="p-3">
+                <div className="flex items-start justify-between gap-1">
+                  <div className="flex items-center gap-2 min-w-0 flex-1">
+                    <GripVertical className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <div className={`w-3 h-3 rounded-full shrink-0 ${group.color}`} />
+                    <span className="text-sm font-semibold truncate">{group.name}</span>
+                  </div>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0">
+                        <MoreVertical className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => openEdit(group)}>
+                        <Pencil className="h-4 w-4 mr-2" /> Modifier
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        className="text-destructive"
+                        onClick={() => deleteMutation.mutate(group.id)}
+                      >
+                        <Trash2 className="h-4 w-4 mr-2" /> Supprimer
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+                <div className="mt-2">
+                  <Badge variant="secondary" className="text-xs">
+                    {group.memberCount} élève{group.memberCount > 1 ? 's' : ''}
+                  </Badge>
+                </div>
+                {group.members.length > 0 && (
+                  <div className="mt-2 flex flex-wrap gap-1">
+                    {group.members.slice(0, 3).map(m => (
+                      <span key={m.user_id} className="text-[10px] px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground">
+                        {m.full_name || m.email?.split('@')[0] || '?'}
+                      </span>
+                    ))}
+                    {group.members.length > 3 && (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground">
+                        +{group.members.length - 3}
+                      </span>
+                    )}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {/* Create/Edit Dialog */}
+      <Dialog open={dialogOpen} onOpenChange={(v) => { if (!v) closeDialog(); else setDialogOpen(true); }}>
+        <DialogContent className="max-w-sm max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{editingGroup ? '✏️ Modifier le groupe' : '➕ Nouveau groupe'}</DialogTitle>
+            <DialogDescription>
+              {editingGroup ? 'Modifiez le nom, la couleur et les élèves' : 'Créez un groupe et sélectionnez les élèves'}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label className="text-sm font-semibold">Nom du groupe</Label>
+              <Input value={groupName} onChange={(e) => setGroupName(e.target.value)} placeholder="Ex: Groupe A" />
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-sm font-semibold">Couleur</Label>
+              <div className="flex flex-wrap gap-2">
+                {GROUP_COLORS.map(c => (
+                  <button
+                    key={c.value}
+                    onClick={() => setGroupColor(c.value)}
+                    className={`w-8 h-8 rounded-full ${c.preview} transition-all ${
+                      groupColor === c.value ? 'ring-2 ring-offset-2 ring-primary' : 'hover:scale-110'
+                    }`}
+                    title={c.label}
+                  />
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label className="text-sm font-semibold">Élèves ({selectedStudents.size})</Label>
+                <Button
+                  variant="ghost" size="sm" className="text-xs h-7"
+                  onClick={() => {
+                    if (selectedStudents.size === allStudents.length) setSelectedStudents(new Set());
+                    else setSelectedStudents(new Set(allStudents.map(s => s.user_id)));
+                  }}
+                >
+                  {selectedStudents.size === allStudents.length ? 'Désélectionner' : 'Tout sélectionner'}
+                </Button>
+              </div>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input value={studentSearch} onChange={(e) => setStudentSearch(e.target.value)} placeholder="Rechercher..." className="pl-9" />
+              </div>
+              <div className="max-h-48 overflow-y-auto border rounded-lg divide-y">
+                {filteredStudents.length === 0 ? (
+                  <p className="text-xs text-muted-foreground text-center py-3">Aucun élève</p>
+                ) : filteredStudents.map(s => (
+                  <div
+                    key={s.user_id}
+                    onClick={() => {
+                      const next = new Set(selectedStudents);
+                      next.has(s.user_id) ? next.delete(s.user_id) : next.add(s.user_id);
+                      setSelectedStudents(next);
+                    }}
+                    className="flex items-center gap-2 p-2 cursor-pointer hover:bg-muted/50 transition-colors"
+                  >
+                    <Checkbox checked={selectedStudents.has(s.user_id)} />
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium truncate">{s.full_name || 'Élève'}</p>
+                      <p className="text-xs text-muted-foreground truncate">{s.email}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <Button
+              onClick={() => createOrUpdateMutation.mutate()}
+              disabled={!groupName.trim() || createOrUpdateMutation.isPending}
+              className="w-full"
+            >
+              {editingGroup ? 'Enregistrer' : 'Créer le groupe'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+};
+
+export default AdminStudentGroups;
