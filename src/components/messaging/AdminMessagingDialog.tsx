@@ -273,6 +273,15 @@ const AdminMessagingDialog = ({ open, onOpenChange, onMessagesRead }: AdminMessa
     if (groupMsgMode === 'all') return allProfiles;
     if (groupMsgMode === 'top3') return allProfiles.filter(p => top3UserIds.includes(p.user_id));
     if (groupMsgMode === 'select') return allProfiles.filter(p => groupMsgSelected.has(p.user_id));
+    if (groupMsgMode === 'groups') {
+      const memberIds = new Set<string>();
+      for (const g of studentGroups) {
+        if (groupMsgSelectedGroups.has(g.id)) {
+          for (const uid of g.memberIds) memberIds.add(uid);
+        }
+      }
+      return allProfiles.filter(p => memberIds.has(p.user_id));
+    }
     return [];
   };
 
@@ -315,6 +324,7 @@ const AdminMessagingDialog = ({ open, onOpenChange, onMessagesRead }: AdminMessa
       setGroupMsgPush(true);
       setGroupMsgMode('all');
       setGroupMsgSelected(new Set());
+      setGroupMsgSelectedGroups(new Set());
       setGroupMsgSearch('');
       refetch();
 
