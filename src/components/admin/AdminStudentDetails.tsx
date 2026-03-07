@@ -267,7 +267,6 @@ const AdminStudentDetails = ({ onBack }: AdminStudentDetailsProps) => {
                   👧
                 </Button>
               </div>
-              </DropdownMenu>
             </CardContent>
           </Card>
         ))}
