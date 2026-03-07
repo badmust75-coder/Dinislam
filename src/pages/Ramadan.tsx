@@ -156,6 +156,20 @@ const Ramadan = () => {
   const getVideosForDay = (dayId: number) => dayVideos.filter(v => v.day_id === dayId);
   const getQuizzesForDay = (dayId: number) => quizzes.filter(q => q.day_id === dayId);
 
+  // Date-based auto-lock: Ramadan starts March 1, 2026
+  const ramadanStart = new Date('2026-03-01');
+  const currentRamadanDay = Math.floor((now.getTime() - ramadanStart.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+
+  const isDateLocked = (day: RamadanDay): boolean => {
+    // If globally unlocked by admin, not locked
+    if (day.is_unlocked) return false;
+    // If per-student exception exists, not locked
+    if (dayExceptions.some(e => e.day_id === day.id)) return false;
+    // Auto-lock: only last 3 days + current day are accessible (4 days window)
+    if (day.day_number < currentRamadanDay - 3) return true;
+    return false;
+  };
+
   const getDayUnlockTime = (dayNumber: number): Date | null => {
     if (!settings?.started_at) return null;
     const startDate = new Date(settings.started_at);
