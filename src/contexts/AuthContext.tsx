@@ -58,6 +58,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   useEffect(() => {
+    // Safety timeout: never stay loading more than 3s
+    const safetyTimer = setTimeout(() => setLoading(false), 3000);
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         setSession(session);
@@ -91,13 +94,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setIsAdmin(adminStatus);
         setIsApproved(adminStatus ? true : approvalStatus);
         await (supabase as any).from('profiles').update({ last_seen: new Date().toISOString() }).eq('user_id', session.user.id);
-        // VAPID push: subscription handled by useWebPush hook
       }
       
       setLoading(false);
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      clearTimeout(safetyTimer);
+      subscription.unsubscribe();
+    };
   }, [checkAdminRole, checkApprovalStatus]);
 
   const signUp = async (email: string, password: string, fullName?: string, gender?: string, dateOfBirth?: string) => {

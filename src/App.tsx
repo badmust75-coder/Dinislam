@@ -7,19 +7,22 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { Loader2 } from "lucide-react";
 
-const Index = React.lazy(() => import("./pages/Index"));
-const Auth = React.lazy(() => import("./pages/Auth"));
-const Sourates = React.lazy(() => import("./pages/Sourates"));
-const Invocations = React.lazy(() => import("./pages/Invocations"));
-const Nourania = React.lazy(() => import("./pages/Nourania"));
-const Priere = React.lazy(() => import("./pages/Priere"));
-const Ramadan = React.lazy(() => import("./pages/Ramadan"));
+// Synchronous imports for core pages (fast startup)
+import Index from "./pages/Index";
+import Auth from "./pages/Auth";
+import Sourates from "./pages/Sourates";
+import Invocations from "./pages/Invocations";
+import Nourania from "./pages/Nourania";
+import Priere from "./pages/Priere";
+import Ramadan from "./pages/Ramadan";
+import NotFound from "./pages/NotFound";
+import PendingApproval from "./pages/PendingApproval";
+
+// Lazy imports for rarely visited pages
 const Admin = React.lazy(() => import("./pages/Admin"));
 const Settings = React.lazy(() => import("./pages/Settings"));
 const Ressources = React.lazy(() => import("./pages/Ressources"));
 const Classement = React.lazy(() => import("./pages/Classement"));
-const NotFound = React.lazy(() => import("./pages/NotFound"));
-const PendingApproval = React.lazy(() => import("./pages/PendingApproval"));
 const Attendance = React.lazy(() => import("./pages/Attendance"));
 const DynamicModule = React.lazy(() => import("./pages/DynamicModule"));
 const AlphabetPage = React.lazy(() => import("./pages/AlphabetPage"));
@@ -53,7 +56,7 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   }
 
   if (!isAdmin && isApproved === false) {
-    return <Suspense fallback={<SuspenseFallback />}><PendingApproval /></Suspense>;
+    return <PendingApproval />;
   }
 
   return <>{children}</>;
@@ -61,7 +64,7 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 
 const AppRoutes = () => {
   return (
-    <Suspense fallback={<SuspenseFallback />}>
+    <Suspense fallback={null}>
       <Routes>
         <Route path="/auth" element={<Auth />} />
         <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
