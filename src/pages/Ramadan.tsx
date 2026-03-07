@@ -249,6 +249,25 @@ const Ramadan = () => {
     const progress = getDayProgress(day.id);
     const isCompleted = progress?.quiz_completed;
 
+    const ramadanStartClick = new Date('2026-03-01T00:00:00');
+    const currentRamadanDayClick = Math.floor(
+      (new Date().getTime() - ramadanStartClick.getTime()) / (1000 * 60 * 60 * 24)
+    ) + 1;
+
+    const isInWindow = day.day_number >= (currentRamadanDayClick - 3)
+                       && day.day_number <= currentRamadanDayClick;
+    const isAdminUnlocked = day.is_unlocked === true;
+    const hasPersonalException = dayExceptions.some(e => e.day_id === day.id);
+
+    if (!isInWindow && !isAdminUnlocked && !hasPersonalException && !isCompleted) {
+      if (day.day_number > currentRamadanDayClick) {
+        toast.error("Ce jour n'est pas encore disponible 🔒");
+      } else {
+        toast.error("Ce jour est verrouillé. Demande à ton professeur de le rouvrir 🔓");
+      }
+      return;
+    }
+
     // Completed days always open directly for review
     if (isCompleted && hasContent) {
       setOpenDay(day);
