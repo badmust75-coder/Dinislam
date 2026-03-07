@@ -22,28 +22,44 @@ export interface CityOption {
   lon: number;
 }
 
-export const CITIES: CityOption[] = [
-  { label: 'Montpellier', country: 'FR', lat: 43.6117, lon: 3.8767 },
-  { label: 'Paris', country: 'FR', lat: 48.8566, lon: 2.3522 },
-  { label: 'Lyon', country: 'FR', lat: 45.7640, lon: 4.8357 },
-  { label: 'Marseille', country: 'FR', lat: 43.2965, lon: 5.3698 },
-  { label: 'Toulouse', country: 'FR', lat: 43.6047, lon: 1.4442 },
-  { label: 'Bordeaux', country: 'FR', lat: 44.8378, lon: -0.5792 },
-  { label: 'Nantes', country: 'FR', lat: 47.2184, lon: -1.5536 },
-  { label: 'Strasbourg', country: 'FR', lat: 48.5734, lon: 7.7521 },
-  { label: 'Lille', country: 'FR', lat: 50.6292, lon: 3.0573 },
-  { label: 'Nice', country: 'FR', lat: 43.7102, lon: 7.2620 },
-  { label: 'Rennes', country: 'FR', lat: 48.1173, lon: -1.6778 },
-  { label: 'Grenoble', country: 'FR', lat: 45.1885, lon: 5.7245 },
-  { label: 'Bruxelles', country: 'BE', lat: 50.8503, lon: 4.3517 },
-  { label: 'Genève', country: 'CH', lat: 46.2044, lon: 6.1432 },
-  { label: 'Londres', country: 'GB', lat: 51.5074, lon: -0.1278 },
-  { label: 'Madrid', country: 'ES', lat: 40.4168, lon: -3.7038 },
-  { label: 'La Mecque', country: 'SA', lat: 21.3891, lon: 39.8579 },
-  { label: 'Alger', country: 'DZ', lat: 36.7372, lon: 3.0863 },
-  { label: 'Casablanca', country: 'MA', lat: 33.5731, lon: -7.5898 },
-  { label: 'Tunis', country: 'TN', lat: 36.8065, lon: 10.1815 },
+// Priority cities (local community) - displayed first
+export const PRIORITY_CITIES: CityOption[] = [
+  { label: 'Millau (12)', country: 'FR', lat: 44.10, lon: 3.08 },
+  { label: 'Pignan (34)', country: 'FR', lat: 43.58, lon: 3.72 },
+  { label: "Clermont-l'Hérault (34)", country: 'FR', lat: 43.63, lon: 3.43 },
+  { label: 'Nébian (34)', country: 'FR', lat: 43.65, lon: 3.47 },
+  { label: 'Paulhan (34)', country: 'FR', lat: 43.54, lon: 3.46 },
 ];
+
+// Other cities sorted alphabetically
+export const OTHER_CITIES: CityOption[] = [
+  { label: 'Angers (49)', country: 'FR', lat: 47.47, lon: -0.55 },
+  { label: 'Besançon (25)', country: 'FR', lat: 47.24, lon: 6.02 },
+  { label: 'Bordeaux (33)', country: 'FR', lat: 44.84, lon: -0.58 },
+  { label: 'Caen (14)', country: 'FR', lat: 49.18, lon: -0.37 },
+  { label: 'Dijon (21)', country: 'FR', lat: 47.32, lon: 5.04 },
+  { label: 'Grenoble (38)', country: 'FR', lat: 45.19, lon: 5.72 },
+  { label: 'Lille (59)', country: 'FR', lat: 50.63, lon: 3.07 },
+  { label: 'Lyon (69)', country: 'FR', lat: 45.75, lon: 4.83 },
+  { label: 'Marseille (13)', country: 'FR', lat: 43.30, lon: 5.37 },
+  { label: 'Metz (57)', country: 'FR', lat: 49.12, lon: 6.18 },
+  { label: 'Montpellier (34)', country: 'FR', lat: 43.61, lon: 3.88 },
+  { label: 'Nantes (44)', country: 'FR', lat: 47.22, lon: -1.55 },
+  { label: 'Nice (06)', country: 'FR', lat: 43.71, lon: 7.26 },
+  { label: 'Orléans (45)', country: 'FR', lat: 47.90, lon: 1.91 },
+  { label: 'Paris (75)', country: 'FR', lat: 48.85, lon: 2.35 },
+  { label: 'Perpignan (66)', country: 'FR', lat: 42.69, lon: 2.89 },
+  { label: 'Reims (51)', country: 'FR', lat: 49.26, lon: 4.03 },
+  { label: 'Rennes (35)', country: 'FR', lat: 48.11, lon: -1.68 },
+  { label: 'Rouen (76)', country: 'FR', lat: 49.44, lon: 1.10 },
+  { label: 'Saint-Étienne (42)', country: 'FR', lat: 45.43, lon: 4.39 },
+  { label: 'Strasbourg (67)', country: 'FR', lat: 48.57, lon: 7.75 },
+  { label: 'Tanger (Maroc)', country: 'MA', lat: 35.76, lon: -5.80 },
+  { label: 'Toulon (83)', country: 'FR', lat: 43.12, lon: 5.93 },
+  { label: 'Toulouse (31)', country: 'FR', lat: 43.60, lon: 1.44 },
+];
+
+export const CITIES: CityOption[] = [...PRIORITY_CITIES, ...OTHER_CITIES];
 
 function parseTime(timeStr: string): Date {
   const [hours, minutes] = timeStr.split(':').map(Number);
