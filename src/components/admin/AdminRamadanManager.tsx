@@ -819,43 +819,38 @@ const AdminRamadanManager = ({ onBack }: AdminRamadanManagerProps) => {
         </CardContent>
       </Card>
 
-      {/* Days Grid */}
+      {/* Days Grid - Calendar style */}
       <h3 className="text-lg font-semibold text-foreground">📅 Les 30 jours</h3>
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
+      <div className="grid grid-cols-5 gap-2">
         {days.map((day) => {
           const videoCount = getVideosForDay(day.id).length;
           const hasVideo = videoCount > 0 || !!day.video_url;
           const quizCount = getQuizzesForDay(day.id).length;
-          const hasPdf = !!day.pdf_url;
-          const isComplete = hasVideo && quizCount >= 1 && hasPdf;
-          const isPartial = hasVideo || quizCount > 0 || hasPdf;
+          const hasQuiz = quizCount > 0;
+          const isComplete = hasVideo && hasQuiz;
+          const isPartial = hasVideo || hasQuiz;
+          const isLocked = !settings?.start_enabled;
 
           return (
             <button
               key={day.id}
               onClick={() => handleOpenDay(day.id)}
               className={`
-                rounded-xl p-3 flex flex-col items-start text-left transition-all duration-200 min-h-[80px]
+                relative aspect-square rounded-xl flex flex-col items-center justify-center
+                transition-all duration-200 border-2
                 ${isComplete
-                  ? 'bg-gradient-to-br from-green-500 to-green-600 text-white'
+                  ? 'bg-green-500/15 border-green-500 text-green-700 dark:text-green-400'
                   : isPartial
-                  ? 'bg-gradient-to-br from-amber-400 to-amber-500 text-white'
-                  : 'bg-muted hover:bg-muted/80 text-foreground'
+                  ? 'bg-amber-500/15 border-amber-400 text-amber-700 dark:text-amber-400'
+                  : 'bg-muted/50 border-border text-muted-foreground hover:border-muted-foreground/40'
                 }
               `}
             >
-              <span className="text-sm font-bold">Jour {day.day_number}</span>
-              {day.theme && (
-                <span className={`text-[10px] leading-tight mt-0.5 line-clamp-2 ${isComplete || isPartial ? 'text-white/80' : 'text-muted-foreground'}`}>
-                  {day.theme}
-                </span>
+              <span className="text-lg font-bold leading-none">{day.day_number}</span>
+              {isLocked && (
+                <span className="absolute top-1 left-1 text-[10px]">🔒</span>
               )}
-              <div className="flex gap-1 mt-auto pt-1">
-                {hasVideo && <Video className="h-3 w-3" />}
-                {videoCount > 1 && <span className="text-[9px]">x{videoCount}</span>}
-                {quizCount > 0 && <span className="text-[10px]">{quizCount}Q</span>}
-                {hasPdf && <FileText className="h-3 w-3" />}
-              </div>
+              <span className="absolute bottom-1 right-1 text-[10px] opacity-50">✏️</span>
             </button>
           );
         })}
@@ -863,16 +858,16 @@ const AdminRamadanManager = ({ onBack }: AdminRamadanManagerProps) => {
 
       {/* Legend */}
       <div className="flex gap-4 text-xs text-muted-foreground">
-        <div className="flex items-center gap-1">
-          <div className="w-4 h-4 rounded bg-gradient-to-br from-green-500 to-green-600" />
+        <div className="flex items-center gap-1.5">
+          <div className="w-3.5 h-3.5 rounded border-2 border-green-500 bg-green-500/15" />
           <span>Complet</span>
         </div>
-        <div className="flex items-center gap-1">
-          <div className="w-4 h-4 rounded bg-gradient-to-br from-gold to-gold-dark" />
+        <div className="flex items-center gap-1.5">
+          <div className="w-3.5 h-3.5 rounded border-2 border-amber-400 bg-amber-500/15" />
           <span>Partiel</span>
         </div>
-        <div className="flex items-center gap-1">
-          <div className="w-4 h-4 rounded bg-muted" />
+        <div className="flex items-center gap-1.5">
+          <div className="w-3.5 h-3.5 rounded border-2 border-border bg-muted/50" />
           <span>Vide</span>
         </div>
       </div>
