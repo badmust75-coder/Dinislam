@@ -58,9 +58,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   useEffect(() => {
-    // Safety timeout: never stay loading more than 3s
-    const safetyTimer = setTimeout(() => setLoading(false), 3000);
-
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         setSession(session);
@@ -100,7 +97,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
 
     return () => {
-      clearTimeout(safetyTimer);
       subscription.unsubscribe();
     };
   }, [checkAdminRole, checkApprovalStatus]);

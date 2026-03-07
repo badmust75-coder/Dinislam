@@ -1,4 +1,3 @@
-import React, { Suspense } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -7,7 +6,6 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { Loader2 } from "lucide-react";
 
-// Synchronous imports for core pages (fast startup)
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Sourates from "./pages/Sourates";
@@ -17,28 +15,21 @@ import Priere from "./pages/Priere";
 import Ramadan from "./pages/Ramadan";
 import NotFound from "./pages/NotFound";
 import PendingApproval from "./pages/PendingApproval";
-
-// Lazy imports for rarely visited pages
-const Admin = React.lazy(() => import("./pages/Admin"));
-const Settings = React.lazy(() => import("./pages/Settings"));
-const Ressources = React.lazy(() => import("./pages/Ressources"));
-const Classement = React.lazy(() => import("./pages/Classement"));
-const Attendance = React.lazy(() => import("./pages/Attendance"));
-const DynamicModule = React.lazy(() => import("./pages/DynamicModule"));
-const AlphabetPage = React.lazy(() => import("./pages/AlphabetPage"));
-const AllahNamesPage = React.lazy(() => import("./pages/AllahNamesPage"));
-const GenericModulePage = React.lazy(() => import("./pages/GenericModulePage"));
-const GrammaireConjugaisonPage = React.lazy(() => import("./pages/GrammaireConjugaisonPage"));
-const GenericTimelinePage = React.lazy(() => import("./pages/GenericTimelinePage"));
-const Monitoring = React.lazy(() => import("./pages/Monitoring"));
+import Admin from "./pages/Admin";
+import Settings from "./pages/Settings";
+import Ressources from "./pages/Ressources";
+import Classement from "./pages/Classement";
+import Attendance from "./pages/Attendance";
+import DynamicModule from "./pages/DynamicModule";
+import AlphabetPage from "./pages/AlphabetPage";
+import AllahNamesPage from "./pages/AllahNamesPage";
+import GenericModulePage from "./pages/GenericModulePage";
+import GrammaireConjugaisonPage from "./pages/GrammaireConjugaisonPage";
+import GenericTimelinePage from "./pages/GenericTimelinePage";
+import Monitoring from "./pages/Monitoring";
 
 const queryClient = new QueryClient();
 
-const SuspenseFallback = () => (
-  <div className="flex items-center justify-center min-h-screen">
-    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-  </div>
-);
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, loading, isApproved, isAdmin } = useAuth();
@@ -64,7 +55,6 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 
 const AppRoutes = () => {
   return (
-    <Suspense fallback={null}>
       <Routes>
         <Route path="/auth" element={<Auth />} />
         <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
@@ -93,7 +83,6 @@ const AppRoutes = () => {
         <Route path="/module/:moduleId" element={<ProtectedRoute><GenericModulePage /></ProtectedRoute>} />
         <Route path="*" element={<NotFound />} />
       </Routes>
-    </Suspense>
   );
 };
 
