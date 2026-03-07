@@ -243,26 +243,24 @@ const Ramadan = () => {
   });
 
   const handleDayClick = (day: RamadanDay) => {
-    console.log('DEBUG RAMADAN:', {
-      dayNumber: day.day_number,
-      currentRamadanDay,
-      ramadanStart: ramadanStart.toISOString(),
-      isOldLocked: isOldLocked(day),
-      isFutureDay: isFutureDay(day),
-      todayDate: new Date().toISOString(),
-    });
-    // Check future days first
-    if (isFutureDay(day)) {
-      toast.info('Ce jour n\'est pas encore disponible 🔒', {
-        style: { textAlign: 'center', display: 'flex', justifyContent: 'center' },
-      });
-      return;
-    }
-    // Check old locked days
-    if (isOldLocked(day)) {
-      toast.info('Ce jour est verrouillé. Tu peux demander à ton professeur de le rouvrir pour toi. 🔓', {
-        style: { textAlign: 'center', display: 'flex', justifyContent: 'center' },
-      });
+    const ramadanStartLocal = new Date('2026-03-01T00:00:00');
+    const currentRamadanDayLocal = Math.floor(
+      (new Date().getTime() - ramadanStartLocal.getTime()) / (1000 * 60 * 60 * 24)
+    ) + 1;
+
+    const isAccessible =
+      day.day_number >= (currentRamadanDayLocal - 3) &&
+      day.day_number <= currentRamadanDayLocal;
+
+    const isAdminUnlocked = day.is_unlocked === true;
+    const hasPersonalException = dayExceptions.some(e => e.day_id === day.id);
+
+    if (!isAccessible && !isAdminUnlocked && !hasPersonalException) {
+      if (day.day_number > currentRamadanDayLocal) {
+        toast.error("Ce jour n'est pas encore disponible 🔒");
+      } else {
+        toast.error("Ce jour est verrouillé. Demande à ton professeur de le rouvrir 🔓");
+      }
       return;
     }
 
