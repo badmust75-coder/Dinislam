@@ -62,6 +62,11 @@ const AdminStudentDetails = ({ onBack }: AdminStudentDetailsProps) => {
     enabled: !!selectedStudent,
     queryFn: async () => {
       if (!selectedStudent) return null;
+
+      console.log('=== DEBUG PROGRESS for student:', selectedStudent.id);
+      const testQuery = await supabase.from('user_ramadan_progress').select('*').eq('user_id', selectedStudent.id);
+      console.log('=== RAMADAN RAW DATA:', testQuery.data, 'ERROR:', testQuery.error);
+
       const [
         { data: sourateProgress }, { data: ramadanProgress },
         { data: nouraniaProgress }, { data: prayerProgress },
