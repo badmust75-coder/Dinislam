@@ -26,6 +26,7 @@ import AdminDynamicCardContent from '@/components/admin/AdminDynamicCardContent'
 import AdminRamadanQuizTracking from '@/components/admin/AdminRamadanQuizTracking';
 import AdminHomework from '@/components/admin/AdminHomework';
 import AdminAttendance from '@/components/admin/AdminAttendance';
+import AdminGlobalStats from '@/components/admin/AdminGlobalStats';
 
 
 import ConfirmDeleteDialog from '@/components/ui/confirm-delete-dialog';
@@ -431,6 +432,7 @@ const Admin = () => {
   if (currentView === 'messages') return <AppLayout title="Tableau de bord"><div className="p-4"><Button variant="ghost" onClick={handleBack} className="mb-4">← Retour</Button><AdminMessaging /></div></AppLayout>;
   if (currentView === 'homework') return <AppLayout title="Tableau de bord"><div className="p-4"><AdminHomework onBack={handleBack} /></div></AppLayout>;
   if (currentView === 'attendance') return <AppLayout title="Tableau de bord"><div className="p-4"><AdminAttendance onBack={handleBack} /></div></AppLayout>;
+  if (currentView === 'global-stats') return <AppLayout title="Tableau de bord"><div className="p-4"><AdminGlobalStats onBack={handleBack} /></div></AppLayout>;
   
   if (currentView === 'dynamic-card-content' && selectedDynamicCard) return <AppLayout title="Tableau de bord"><div className="p-4"><AdminDynamicCardContent card={selectedDynamicCard} onBack={handleBack} /></div></AppLayout>;
   if (currentView === 'allah-names-manage') return <AppLayout title="Tableau de bord"><div className="p-4"><AdminAllahNamesManager onBack={handleBack} /></div></AppLayout>;
