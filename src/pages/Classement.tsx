@@ -92,7 +92,8 @@ const Classement = () => {
       const { data: rankingData, error } = await supabase
         .from('student_ranking')
         .select('user_id, total_points')
-        .order('total_points', { ascending: false });
+        .order('total_points', { ascending: false })
+        .limit(200);
 
       if (error) throw error;
 
@@ -102,7 +103,8 @@ const Classement = () => {
       const { data: profiles } = await supabase
         .from('profiles')
         .select('user_id, full_name, prayer_group')
-        .in('user_id', userIds);
+        .in('user_id', userIds)
+        .limit(200);
 
       const entries: RankingEntry[] = [];
       let currentRank = 1;
@@ -161,11 +163,14 @@ const Classement = () => {
       }
       const { data: allStudents } = await supabase
         .from('student_ranking')
-        .select('user_id');
+        .select('user_id')
+        .limit(200);
       if (allStudents) {
-        for (const student of allStudents) {
-          await supabase.rpc('recalculate_student_points', { p_user_id: student.user_id });
-        }
+        await Promise.all(
+          allStudents.map(student =>
+            supabase.rpc('recalculate_student_points', { p_user_id: student.user_id })
+          )
+        );
       }
     },
     onSuccess: () => {

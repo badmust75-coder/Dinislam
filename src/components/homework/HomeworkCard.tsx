@@ -41,12 +41,12 @@ const HomeworkCard = () => {
   const [isSendingAudio, setIsSendingAudio] = useState(false);
 
   const { data: profile } = useQuery({
-    queryKey: ['my-profile-name', user?.id],
+    queryKey: ['profile', user?.id],
     queryFn: async () => {
       if (!user) return null;
       const { data } = await supabase
         .from('profiles')
-        .select('full_name')
+        .select('full_name, notification_prompt_dismissed, notification_prompt_later_count, notification_prompt_later_at')
         .eq('user_id', user.id)
         .maybeSingle();
       return data;
