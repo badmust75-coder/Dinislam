@@ -157,8 +157,8 @@ const Ramadan = () => {
   const getQuizzesForDay = (dayId: number) => quizzes.filter(q => q.day_id === dayId);
 
   // Date-based auto-lock: Ramadan starts March 1, 2026
-  const ramadanStart = new Date('2026-03-01');
-  const currentRamadanDay = Math.floor((now.getTime() - ramadanStart.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+  const ramadanStart = new Date('2026-03-01T00:00:00');
+  const currentRamadanDay = Math.floor((new Date().getTime() - ramadanStart.getTime()) / (1000 * 60 * 60 * 24)) + 1;
 
   const isFutureDay = (day: RamadanDay): boolean => {
     if (day.is_unlocked) return false;
@@ -243,6 +243,14 @@ const Ramadan = () => {
   });
 
   const handleDayClick = (day: RamadanDay) => {
+    console.log('DEBUG RAMADAN:', {
+      dayNumber: day.day_number,
+      currentRamadanDay,
+      ramadanStart: ramadanStart.toISOString(),
+      isOldLocked: isOldLocked(day),
+      isFutureDay: isFutureDay(day),
+      todayDate: new Date().toISOString(),
+    });
     // Check future days first
     if (isFutureDay(day)) {
       toast.info('Ce jour n\'est pas encore disponible 🔒', {
