@@ -93,11 +93,13 @@ const AdminMessagingDialog = ({ open, onOpenChange, onMessagesRead }: AdminMessa
   const { data: studentGroups = [] } = useQuery({
     queryKey: ['student-groups-messaging'],
     queryFn: async () => {
-      const { data: groups } = await (supabase as any).from('student_groups').select('*').order('display_order');
-      const { data: members } = await (supabase as any).from('student_group_members').select('group_id, user_id');
-      return (groups || []).map((g: any) => ({
+      const { data: groups, error: gErr } = await supabase.from('student_groups').select('*').order('display_order');
+      if (gErr) { console.error('Error fetching student_groups:', gErr); return []; }
+      const { data: members, error: mErr } = await supabase.from('student_group_members').select('group_id, user_id');
+      if (mErr) { console.error('Error fetching student_group_members:', mErr); return []; }
+      return (groups || []).map((g) => ({
         ...g,
-        memberIds: (members || []).filter((m: any) => m.group_id === g.id).map((m: any) => m.user_id),
+        memberIds: (members || []).filter((m) => m.group_id === g.id).map((m) => m.user_id),
       }));
     },
     enabled: groupMsgOpen,
