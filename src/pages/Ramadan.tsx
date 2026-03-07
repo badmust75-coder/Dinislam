@@ -243,27 +243,6 @@ const Ramadan = () => {
   });
 
   const handleDayClick = (day: RamadanDay) => {
-    const ramadanStartLocal = new Date('2026-03-01T00:00:00');
-    const currentRamadanDayLocal = Math.floor(
-      (new Date().getTime() - ramadanStartLocal.getTime()) / (1000 * 60 * 60 * 24)
-    ) + 1;
-
-    const isAccessible =
-      day.day_number >= (currentRamadanDayLocal - 3) &&
-      day.day_number <= currentRamadanDayLocal;
-
-    const isAdminUnlocked = day.is_unlocked === true;
-    const hasPersonalException = dayExceptions.some(e => e.day_id === day.id);
-
-    if (!isAccessible && !isAdminUnlocked && !hasPersonalException) {
-      if (day.day_number > currentRamadanDayLocal) {
-        toast.error("Ce jour n'est pas encore disponible 🔒");
-      } else {
-        toast.error("Ce jour est verrouillé. Demande à ton professeur de le rouvrir 🔓");
-      }
-      return;
-    }
-
     const isUnlocked = isDayUnlocked(day.day_number);
     const hasContent = dayHasContent(day);
     const waiting = isWaitingForTime(day.day_number);
