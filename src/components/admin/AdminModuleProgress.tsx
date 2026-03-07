@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -50,7 +51,7 @@ const AdminModuleProgress = ({ module, onBack }: AdminModuleProgressProps) => {
                   .from('ramadan_days')
                   .select('*', { count: 'exact', head: true }),
               ]);
-              validated = progressRes.data?.filter(p => p.video_watched && p.quiz_completed && p.pdf_read).length || 0;
+              validated = progressRes.data?.filter(p => p.quiz_completed).length || 0;
               total = totalRes.count || 0;
               break;
             }
@@ -143,6 +144,9 @@ const AdminModuleProgress = ({ module, onBack }: AdminModuleProgressProps) => {
 
   const config = moduleConfig[module];
 
+  const [selectedStudent, setSelectedStudent] = useState<string | null>(null);
+  const selectedStudentData = students?.find(s => s.user_id === selectedStudent);
+
   if (isLoading) {
     return (
       <div className="space-y-4">
@@ -174,7 +178,7 @@ const AdminModuleProgress = ({ module, onBack }: AdminModuleProgressProps) => {
 
       <div className="space-y-3">
         {students?.map((student) => (
-          <Card key={student.user_id}>
+          <Card key={student.user_id} className="cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => setSelectedStudent(student.user_id)}>
             <CardContent className="p-4">
               <div className="flex items-center gap-3 mb-3">
                 <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
