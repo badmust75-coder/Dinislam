@@ -26,78 +26,78 @@ function calcQiblaAngle(userLat: number, userLng: number): number {
 
 const QiblaCompass = ({ city, onClose }: QiblaCompassProps) => {
   const qiblaAngle = calcQiblaAngle(city.lat, city.lon);
-  const [deviceHeading, setDeviceHeading] = useState<number | null>(null);
-  const [needsIOSPermission, setNeedsIOSPermission] = useState(false);
-  const [permissionDenied, setPermissionDenied] = useState(false);
-  const [compassSupported, setCompassSupported] = useState(true);
+  const [compassActive, setCompassActive] = useState(false);
+  const [compassError, setCompassError] = useState<string | null>(null);
+  const [deviceHeading, setDeviceHeading] = useState<number>(0);
   const smoothHeadingRef = useRef(0);
-  const animRef = useRef<number>();
   const targetHeadingRef = useRef(0);
-  const listeningRef = useRef(false);
+  const animRef = useRef<number>();
+  const handlerRef = useRef<((e: DeviceOrientationEvent) => void) | null>(null);
 
-  const handleOrientation = useCallback((e: DeviceOrientationEvent) => {
-    let heading: number | null = null;
-    // iOS provides webkitCompassHeading
-    if ((e as any).webkitCompassHeading !== undefined && (e as any).webkitCompassHeading !== null) {
-      heading = (e as any).webkitCompassHeading;
-    } else if (e.alpha !== null && e.alpha !== undefined) {
-      // Android: alpha is degrees from north (when using deviceorientationabsolute)
-      heading = (360 - e.alpha) % 360;
-    }
-    if (heading !== null && !isNaN(heading)) {
+  // Create stable handler
+  useEffect(() => {
+    handlerRef.current = (e: DeviceOrientationEvent) => {
+      const heading: number = (e as any).webkitCompassHeading ?? e.alpha ?? 0;
       targetHeadingRef.current = heading;
       setDeviceHeading(heading);
+    };
+  }, []);
+
+  // Auto-start on non-iOS (no permission needed)
+  useEffect(() => {
+    const DOE = window.DeviceOrientationEvent as any;
+    if (typeof DOE?.requestPermission !== 'function' && window.DeviceOrientationEvent) {
+      // Android / desktop — start immediately
+      const handler = (e: DeviceOrientationEvent) => {
+        const heading: number = (e as any).webkitCompassHeading ?? e.alpha ?? 0;
+        targetHeadingRef.current = heading;
+        setDeviceHeading(heading);
+      };
+      handlerRef.current = handler;
+      window.addEventListener('deviceorientationabsolute', handler as EventListener, true);
+      window.addEventListener('deviceorientation', handler as EventListener, true);
+      setCompassActive(true);
+
+      return () => {
+        window.removeEventListener('deviceorientationabsolute', handler as EventListener, true);
+        window.removeEventListener('deviceorientation', handler as EventListener, true);
+      };
     }
   }, []);
 
-  const startListening = useCallback(() => {
-    if (listeningRef.current) return;
-    listeningRef.current = true;
-    // Try absolute first (more accurate on Android)
-    window.addEventListener('deviceorientationabsolute', handleOrientation as EventListener, true);
-    window.addEventListener('deviceorientation', handleOrientation as EventListener, true);
-    
-    // Detect if compass is not supported after a timeout
-    setTimeout(() => {
-      if (targetHeadingRef.current === 0 && deviceHeading === null) {
-        setCompassSupported(false);
-      }
-    }, 3000);
-  }, [handleOrientation, deviceHeading]);
-
+  // Cleanup for iOS listener
   useEffect(() => {
-    // Check if iOS permission is needed
-    const DOE = window.DeviceOrientationEvent as any;
-    if (typeof DOE?.requestPermission === 'function') {
-      setNeedsIOSPermission(true);
-    } else if (window.DeviceOrientationEvent) {
-      startListening();
-    } else {
-      setCompassSupported(false);
-    }
-
     return () => {
-      window.removeEventListener('deviceorientationabsolute', handleOrientation as EventListener, true);
-      window.removeEventListener('deviceorientation', handleOrientation as EventListener, true);
-      listeningRef.current = false;
+      if (handlerRef.current) {
+        window.removeEventListener('deviceorientation', handlerRef.current as EventListener, true);
+      }
       if (animRef.current) cancelAnimationFrame(animRef.current);
     };
-  }, [handleOrientation, startListening]);
+  }, []);
 
-  const requestIOSPermission = async () => {
+  // Synchronous onClick handler for iOS permission
+  const handleActivateCompass = async () => {
     try {
-      const DOE = window.DeviceOrientationEvent as any;
-      const response = await DOE.requestPermission();
-      if (response === 'granted') {
-        setNeedsIOSPermission(false);
-        startListening();
+      if (typeof (DeviceOrientationEvent as any).requestPermission === 'function') {
+        const permission = await (DeviceOrientationEvent as any).requestPermission();
+        if (permission === 'granted') {
+          const handler = (e: DeviceOrientationEvent) => {
+            const heading: number = (e as any).webkitCompassHeading ?? e.alpha ?? 0;
+            targetHeadingRef.current = heading;
+            setDeviceHeading(heading);
+          };
+          handlerRef.current = handler;
+          window.addEventListener('deviceorientation', handler as EventListener, true);
+          setCompassActive(true);
+        } else {
+          setCompassError("Permission refusée. Allez dans Réglages > Safari > Mouvement et orientation.");
+        }
       } else {
-        setPermissionDenied(true);
-        setNeedsIOSPermission(false);
+        window.addEventListener('deviceorientation', handlerRef.current as EventListener, true);
+        setCompassActive(true);
       }
     } catch {
-      setPermissionDenied(true);
-      setNeedsIOSPermission(false);
+      setCompassError("Erreur d'activation. Essayez de recharger la page.");
     }
   };
 
@@ -106,7 +106,6 @@ const QiblaCompass = ({ city, onClose }: QiblaCompassProps) => {
     const animate = () => {
       const target = targetHeadingRef.current;
       let current = smoothHeadingRef.current;
-      // Shortest path rotation
       let diff = target - current;
       if (diff > 180) diff -= 360;
       if (diff < -180) diff += 360;
@@ -118,7 +117,7 @@ const QiblaCompass = ({ city, onClose }: QiblaCompassProps) => {
     return () => { if (animRef.current) cancelAnimationFrame(animRef.current); };
   }, []);
 
-  // Force re-render at ~30fps for smooth visual updates
+  // Re-render at ~30fps
   const [, setTick] = useState(0);
   useEffect(() => {
     const interval = setInterval(() => setTick(t => t + 1), 33);
@@ -142,6 +141,9 @@ const QiblaCompass = ({ city, onClose }: QiblaCompassProps) => {
     { deg: 270, label: 'O' },
   ];
 
+  // Check if iOS needs permission button
+  const needsButton = !compassActive && typeof (window.DeviceOrientationEvent as any)?.requestPermission === 'function';
+
   return (
     <div className="fixed inset-0 z-50 bg-black/60 flex items-end justify-center" onClick={onClose}>
       <div
@@ -149,10 +151,8 @@ const QiblaCompass = ({ city, onClose }: QiblaCompassProps) => {
         onClick={e => e.stopPropagation()}
         style={{ maxHeight: '90vh', overflowY: 'auto' }}
       >
-        {/* Handle */}
         <div className="w-12 h-1 bg-slate-300 rounded-full mx-auto" />
 
-        {/* Header */}
         <div className="flex items-center justify-between">
           <div>
             <h3 className="text-lg font-bold text-foreground">Direction Qibla</h3>
@@ -163,7 +163,7 @@ const QiblaCompass = ({ city, onClose }: QiblaCompassProps) => {
           </button>
         </div>
 
-        {/* Simple map visual */}
+        {/* Map */}
         <div className="rounded-xl overflow-hidden bg-blue-50 dark:bg-slate-800 relative" style={{ height: 140 }}>
           <svg viewBox="0 0 340 140" className="w-full h-full">
             <rect width="340" height="140" fill="#a8d8ea" />
@@ -185,39 +185,39 @@ const QiblaCompass = ({ city, onClose }: QiblaCompassProps) => {
         </div>
 
         {/* iOS Permission Button */}
-        {needsIOSPermission && (
-          <div className="text-center">
+        {needsButton && (
+          <div className="text-center space-y-2">
             <Button
-              onClick={requestIOSPermission}
+              onClick={handleActivateCompass}
               className="bg-green-700 hover:bg-green-800 text-white gap-2"
             >
               🧭 Activer la boussole
             </Button>
-            <p className="text-xs text-muted-foreground mt-2">
-              Autorisez l'accès à la boussole pour une orientation en temps réel
-            </p>
+            {compassError && (
+              <p className="text-xs text-destructive">{compassError}</p>
+            )}
+            {!compassError && (
+              <p className="text-xs text-muted-foreground">
+                Autorisez l'accès à la boussole pour une orientation en temps réel
+              </p>
+            )}
           </div>
         )}
 
         {/* Compass */}
         <div className="flex items-center justify-center">
           <div className="relative" style={{ width: size, height: size }}>
-            {/* Rotating compass ring */}
             <svg
               width={size}
               height={size}
               style={{ transform: `rotate(${compassRotation}deg)` }}
-              className="absolute inset-0 transition-none"
+              className="absolute inset-0"
             >
-              {/* Outer ring */}
               <circle cx={cx} cy={cy} r={r} fill="#1a6b3a" />
               <circle cx={cx} cy={cy} r={r - 2} fill="none" stroke="#2d8a50" strokeWidth="1" />
-
-              {/* Decorative inner pattern */}
               <circle cx={cx} cy={cy} r={r * 0.7} fill="#155e30" opacity="0.5" />
               <circle cx={cx} cy={cy} r={r * 0.5} fill="#1a6b3a" opacity="0.3" />
 
-              {/* Degree markers */}
               {degMarkers.map((deg) => {
                 const rad = (deg * Math.PI) / 180;
                 const isMajor = deg % 30 === 0;
@@ -235,7 +235,6 @@ const QiblaCompass = ({ city, onClose }: QiblaCompassProps) => {
                 );
               })}
 
-              {/* Degree numbers */}
               {[0, 30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330].map((deg) => {
                 const rad = (deg * Math.PI) / 180;
                 const textR = r - 25;
@@ -257,7 +256,6 @@ const QiblaCompass = ({ city, onClose }: QiblaCompassProps) => {
               })}
             </svg>
 
-            {/* Fixed Qibla pointer */}
             <svg width={size} height={size} className="absolute inset-0">
               <g transform={`rotate(${qiblaPointerRotation}, ${cx}, ${cy})`}>
                 <polygon
@@ -267,8 +265,6 @@ const QiblaCompass = ({ city, onClose }: QiblaCompassProps) => {
                 />
                 <text x={cx} y={cy - r + 45} textAnchor="middle" fontSize="16">🕋</text>
               </g>
-
-              {/* Center dot */}
               <circle cx={cx} cy={cy} r="6" fill="#1e293b" stroke="white" strokeWidth="1.5" />
             </svg>
           </div>
@@ -279,19 +275,14 @@ const QiblaCompass = ({ city, onClose }: QiblaCompassProps) => {
           <p className="text-sm text-green-800 dark:text-green-300">
             La Qibla est à <strong>{Math.round(qiblaAngle)}°</strong> depuis {city.label}
           </p>
-          {deviceHeading !== null && (
+          {compassActive && (
             <p className="text-xs text-green-700 dark:text-green-400 mt-1">
               Cap actuel : {Math.round(deviceHeading)}° — Orientez le haut du téléphone vers 🕋
             </p>
           )}
-          {((!compassSupported && !needsIOSPermission) || permissionDenied) && (
+          {!compassActive && !needsButton && (
             <p className="text-xs text-muted-foreground mt-1">
               Boussole non disponible sur cet appareil. Orientez-vous à <strong>{Math.round(qiblaAngle)}°</strong> depuis le Nord.
-            </p>
-          )}
-          {deviceHeading === null && compassSupported && !needsIOSPermission && !permissionDenied && (
-            <p className="text-xs text-muted-foreground mt-1">
-              Recherche de la boussole…
             </p>
           )}
         </div>
