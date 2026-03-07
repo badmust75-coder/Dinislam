@@ -141,6 +141,7 @@ const AdminMessagingDialog = ({ open, onOpenChange, onMessagesRead }: AdminMessa
           unreadCount: msgs.filter(m => m.sender_type === 'user' && !m.is_read).length,
         });
       }
+      list.sort((a, b) => (a.profile.full_name || '').localeCompare(b.profile.full_name || '', 'fr'));
       return list;
     },
     enabled: open,

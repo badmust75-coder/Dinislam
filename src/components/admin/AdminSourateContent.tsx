@@ -66,7 +66,8 @@ const AdminSourateContent = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('profiles')
-        .select('user_id, full_name, email');
+        .select('user_id, full_name, email')
+        .order('full_name', { ascending: true });
       if (error) throw error;
       return data || [];
     },

@@ -40,7 +40,8 @@ const AdminPrayerGroupManager = () => {
       const { data: profiles, error } = await (supabase as any)
         .from('profiles')
         .select('user_id, full_name, email, date_of_birth, prayer_group')
-        .eq('is_approved', true);
+        .eq('is_approved', true)
+        .order('full_name', { ascending: true });
       if (error) throw error;
 
       const { data: adminRoles } = await supabase

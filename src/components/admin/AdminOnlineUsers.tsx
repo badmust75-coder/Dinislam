@@ -63,7 +63,8 @@ const AdminOnlineUsers = () => {
       const { data: profiles, error: profilesError } = await (supabase as any)
         .from('profiles')
         .select('user_id, full_name, email, last_seen, is_approved')
-        .eq('is_approved', true);
+        .eq('is_approved', true)
+        .order('full_name', { ascending: true });
       if (profilesError) throw profilesError;
 
       const { data: adminRoles } = await supabase

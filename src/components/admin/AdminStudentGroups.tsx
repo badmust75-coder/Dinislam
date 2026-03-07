@@ -63,7 +63,8 @@ const AdminStudentGroups = () => {
       const { data: profiles } = await supabase
         .from('profiles')
         .select('user_id, full_name, email')
-        .eq('is_approved', true);
+        .eq('is_approved', true)
+        .order('full_name', { ascending: true });
 
       const profileMap = new Map((profiles || []).map(p => [p.user_id, p]));
 

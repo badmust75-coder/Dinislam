@@ -16,7 +16,7 @@ const AdminUsersList = ({ onBack }: AdminUsersListProps) => {
       const { data: profiles, error } = await supabase
         .from('profiles')
         .select('*')
-        .order('created_at', { ascending: false });
+        .order('full_name', { ascending: true });
 
       if (error) throw error;
       return profiles || [];

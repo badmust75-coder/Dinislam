@@ -31,7 +31,7 @@ const AdminRegistrationValidations = ({ onBack }: { onBack: () => void }) => {
         .from('profiles')
         .select('user_id, email, full_name, gender, age, created_at, is_approved')
         .order('is_approved', { ascending: true })
-        .order('created_at', { ascending: true });
+        .order('full_name', { ascending: true });
 
       if (error) throw error;
       return (data || []) as RegistrationUser[];

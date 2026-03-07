@@ -31,7 +31,8 @@ const AdminModuleProgress = ({ module, onBack }: AdminModuleProgressProps) => {
       // Get all profiles
       const { data: profiles, error: profilesError } = await supabase
         .from('profiles')
-        .select('user_id, email, full_name');
+        .select('user_id, email, full_name')
+        .order('full_name', { ascending: true });
 
       if (profilesError) throw profilesError;
 
