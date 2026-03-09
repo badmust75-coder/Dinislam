@@ -276,7 +276,7 @@ Clique sur n'importe quel module pour commencer !
       {/* Mascot Dialog */}
       {isOpen && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-end justify-center p-4">
-          <Card className="w-full max-w-md max-h-[80vh] bg-gradient-to-br from-yellow-50 via-white to-amber-50 border-2 border-yellow-300">
+          <Card className="w-full max-w-md max-h-[80vh] bg-gradient-to-br from-yellow-50 via-background to-amber-50 border-2 border-yellow-300">
             <CardHeader className="pr-8 relative">
               <div className="flex items-center gap-2">
                 <Star className="h-6 w-6 text-yellow-500" />
