@@ -301,34 +301,36 @@ const Classement = () => {
           <p className="text-sm text-muted-foreground">Qui sera au sommet cette semaine ?</p>
         </div>
 
-        {/* Group filter */}
-        <div className="flex gap-2 justify-center flex-wrap">
-          <button
-            onClick={() => setGroupFilter('global')}
-            className={cn(
-              'px-3 py-1.5 rounded-full text-xs font-semibold transition-all',
-              groupFilter === 'global'
-                ? 'bg-primary text-primary-foreground shadow-md'
-                : 'bg-muted text-muted-foreground hover:bg-muted/80'
-            )}
-          >
-            🌍 Global
-          </button>
-          {studentGroups.map(group => (
+        {/* Group filter - admin only */}
+        {isAdmin && (
+          <div className="flex gap-2 justify-center flex-wrap">
             <button
-              key={group.id}
-              onClick={() => setGroupFilter(group.id)}
+              onClick={() => setGroupFilter('global')}
               className={cn(
                 'px-3 py-1.5 rounded-full text-xs font-semibold transition-all',
-                groupFilter === group.id
+                groupFilter === 'global'
                   ? 'bg-primary text-primary-foreground shadow-md'
                   : 'bg-muted text-muted-foreground hover:bg-muted/80'
               )}
             >
-              👥 {group.name}
+              🌍 Global
             </button>
-          ))}
-        </div>
+            {studentGroups.map(group => (
+              <button
+                key={group.id}
+                onClick={() => setGroupFilter(group.id)}
+                className={cn(
+                  'px-3 py-1.5 rounded-full text-xs font-semibold transition-all',
+                  groupFilter === group.id
+                    ? 'bg-primary text-primary-foreground shadow-md'
+                    : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                )}
+              >
+                👥 {group.name}
+              </button>
+            ))}
+          </div>
+        )
 
         {/* My position highlight */}
         {myRanking && encouragement && (
