@@ -270,6 +270,7 @@ const AdminStudentGroups = () => {
   };
 
   const handleDragEnd = async (event: DragEndEvent) => {
+    if (!groups || groups.length === 0) return;
     const { active, over } = event;
     if (!over || active.id === over.id) return;
 
@@ -336,7 +337,7 @@ const AdminStudentGroups = () => {
         </Button>
       </div>
 
-      {groups.length === 0 ? (
+      {(!groups || groups.length === 0) ? (
         <p className="text-sm text-muted-foreground text-center py-4">Aucun groupe créé</p>
       ) : (
         <DndContext
@@ -345,11 +346,11 @@ const AdminStudentGroups = () => {
           onDragEnd={handleDragEnd}
         >
           <SortableContext
-            items={groups.map(g => g.id)}
+            items={(groups || []).map(g => g.id)}
             strategy={rectSortingStrategy}
           >
             <div className="grid grid-cols-2 gap-3">
-              {groups.map((group) => (
+              {(groups || []).map((group) => (
                 <SortableGroupCard
                   key={group.id}
                   group={group}
