@@ -33,9 +33,28 @@ const StarMascot = () => {
   const [isDragging, setIsDragging] = useState(false);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [position, setPosition] = useState(() => {
-    // Load saved position from localStorage
-    const saved = localStorage.getItem('starMascot-position');
-    return saved ? JSON.parse(saved) : { x: window.innerWidth - 80, y: window.innerHeight - 120 };
+    // Safe initialization - avoid accessing window during SSR
+    if (typeof window === 'undefined') {
+      return { x: 0, y: 0 };
+    }
+    
+    try {
+      const saved = localStorage.getItem('starMascot-position');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return {
+          x: Math.max(0, Math.min(parsed.x || 0, window.innerWidth - 80)),
+          y: Math.max(0, Math.min(parsed.y || 0, window.innerHeight - 120))
+        };
+      }
+    } catch (error) {
+      console.warn('Failed to load mascot position:', error);
+    }
+    
+    return { 
+      x: Math.max(0, window.innerWidth - 80), 
+      y: Math.max(0, window.innerHeight - 120) 
+    };
   });
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -81,7 +100,13 @@ const StarMascot = () => {
 
   // Save position to localStorage when it changes
   useEffect(() => {
-    localStorage.setItem('starMascot-position', JSON.stringify(position));
+    try {
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('starMascot-position', JSON.stringify(position));
+      }
+    } catch (error) {
+      console.warn('Failed to save mascot position:', error);
+    }
   }, [position]);
 
   // Welcome message when opening
