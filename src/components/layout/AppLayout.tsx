@@ -4,6 +4,7 @@ import BottomNav from './BottomNav';
 import usePresenceHeartbeat from '@/hooks/usePresenceHeartbeat';
 import EmailVerificationBanner from '@/components/auth/EmailVerificationBanner';
 import StarMascot from '@/components/mascot/StarMascot';
+import AdminMoonAssistant from '@/components/admin/AdminMoonAssistant';
 
 interface AppLayoutProps {
   children: ReactNode;
@@ -29,6 +30,7 @@ const AppLayout = ({
       </main>
       {showBottomNav && <BottomNav />}
       <StarMascot />
+      <AdminMoonAssistant />
     </div>
   );
 };
