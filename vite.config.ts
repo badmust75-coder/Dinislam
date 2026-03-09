@@ -4,7 +4,6 @@ import path from "path";
 import { componentTagger } from "lovable-tagger";
 
 // https://vitejs.dev/config/
-// Cache bust: v3 - force full dep rebuild
 export default defineConfig(({ mode }) => ({
   server: {
     host: "::",
@@ -21,22 +20,11 @@ export default defineConfig(({ mode }) => ({
     dedupe: [
       "react", 
       "react-dom",
-      "@radix-ui/react-tooltip",
-      "@radix-ui/react-dialog",
-      "@radix-ui/react-popover",
-      "@radix-ui/react-slot",
-      "@tanstack/react-query",
+      "react/jsx-runtime",
+      "react/jsx-dev-runtime",
     ],
   },
   optimizeDeps: {
-    include: [
-      "react",
-      "react-dom",
-      "@tanstack/react-query",
-      "@radix-ui/react-tooltip",
-      "@radix-ui/react-dialog",
-      "@radix-ui/react-popover",
-    ],
     force: true,
   },
 }));
