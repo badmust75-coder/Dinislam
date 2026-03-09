@@ -386,7 +386,7 @@ const Classement = () => {
                     getRowStyle(entry.rank, isMe),
                     isMe && 'scale-[1.02]',
                   )}
-                  style={{ animationDelay: `${index * 40}ms` }}
+                  style={{ animationDelay: `${index * 40}ms`, backgroundColor: getRankBgColor(entry.rank, isMe) }}
                 >
                   <div className="flex-shrink-0 w-10 flex justify-center">
                     {getRankDisplay(entry.rank)}
