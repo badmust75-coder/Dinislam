@@ -172,21 +172,21 @@ const StarMascot = () => {
 
     const suggestions = [];
     
-    // Check unvalidated progress
-    if (progress.user_sourate_progress?.some(s => !s.is_validated)) {
-      suggestions.push("📖 Il te reste des sourates à faire valider");
+    // Check progress in different modules
+    if (progress.sourates && progress.sourates.validated < progress.sourates.total) {
+      suggestions.push(`📖 Tu as ${progress.sourates.total - progress.sourates.validated} sourate(s) à valider`);
     }
-    if (progress.user_nourania_progress?.some(n => !n.is_validated)) {
-      suggestions.push("📝 Tu as des leçons Nourania en attente");
+    if (progress.nourania && progress.nourania.validated < progress.nourania.total) {
+      suggestions.push(`📝 Il reste ${progress.nourania.total - progress.nourania.validated} leçon(s) Nourania`);
     }
-    if (progress.user_invocation_progress?.some(i => !i.is_validated)) {
-      suggestions.push("🤲 Quelques invocations attendent ta validation");
+    if (progress.invocations && progress.invocations.memorized < progress.invocations.total) {
+      suggestions.push(`🤲 Tu peux mémoriser plus d'invocations`);
     }
 
     if (suggestions.length === 0) {
-      addMascotMessage("🎉 Tout est à jour ! Tu peux explorer de nouveaux modules !");
+      addMascotMessage("🎉 Bravo ! Tu progresses très bien ! Continue comme ça !");
     } else {
-      addMascotMessage(`📚 Je te suggère de réviser :\n• ${suggestions.join('\n• ')}`);
+      addMascotMessage(`📚 Je te suggère de travailler sur :\n• ${suggestions.join('\n• ')}`);
     }
   };
 
