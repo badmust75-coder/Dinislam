@@ -303,7 +303,7 @@ Clique sur n'importe quel module pour commencer !
                       className={`max-w-[80%] p-3 rounded-2xl ${
                         message.type === 'user'
                           ? 'bg-primary text-primary-foreground'
-                          : 'bg-yellow-100 text-gray-800 border border-yellow-300'
+                          : 'bg-yellow-100 text-foreground border border-yellow-300'
                       }`}
                     >
                       <p className="text-sm whitespace-pre-line">{message.text}</p>
