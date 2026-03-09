@@ -235,6 +235,8 @@ const AdminRamadanManager = ({ onBack }: AdminRamadanManagerProps) => {
       if (error) throw error;
       return data as DayVideo[];
     },
+    refetchOnMount: 'always',
+    staleTime: 0,
   });
 
   // Fetch quizzes
