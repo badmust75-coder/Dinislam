@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Home, Mail, CalendarCheck, Shield, Check, BarChart3 } from 'lucide-react';
+import { Home, Mail, CalendarCheck, Shield, Check, BarChart3, Trophy } from 'lucide-react';
 import UserSettingsDialog from '@/components/settings/UserSettingsDialog';
 import AccountSwitcher from '@/components/auth/AccountSwitcher';
 import { useNavigate, useLocation } from 'react-router-dom';
