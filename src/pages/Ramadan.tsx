@@ -420,10 +420,7 @@ const Ramadan = () => {
                     <span className="text-[10px] mt-0.5">{day.day_number}</span>
                   </>
                 ) : (
-                  <>
-                    <span className="text-sm">🌙</span>
-                    <span className="text-[11px] font-bold">{day.day_number}</span>
-                  </>
+                  <span className="text-base font-bold">{day.day_number}</span>
                 )}
               </button>
             );
