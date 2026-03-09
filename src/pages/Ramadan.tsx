@@ -429,22 +429,22 @@ const Ramadan = () => {
         {/* Legend */}
         <div className="flex flex-wrap gap-3 justify-center text-xs text-muted-foreground">
           <div className="flex items-center gap-1">
-            <div className="w-4 h-4 rounded bg-gradient-to-br from-green-600 to-green-700" />
+            <div className="w-4 h-4 rounded bg-[#22c55e]" />
             <span>Complété</span>
           </div>
           <div className="flex items-center gap-1">
-            <div className="w-4 h-4 rounded bg-gradient-to-br from-orange-400 to-orange-500" />
-            <span>En attente</span>
+            <div className="w-4 h-4 rounded bg-[#f97316]" />
+            <span>Jour en cours</span>
           </div>
           <div className="flex items-center gap-1">
-            <div className="w-4 h-4 rounded bg-gray-200 relative">
+            <div className="w-4 h-4 rounded bg-[#dcfce7]" />
+            <span>Disponible</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <div className="w-4 h-4 rounded bg-[#fef3c7] relative">
               <span className="absolute -top-0.5 -right-0.5 text-[6px]">🔒</span>
             </div>
             <span>Verrouillé</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <div className="w-4 h-4 rounded bg-green-200" />
-            <span>Disponible</span>
           </div>
         </div>
 
