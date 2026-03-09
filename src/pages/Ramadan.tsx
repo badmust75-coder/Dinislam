@@ -384,16 +384,20 @@ const Ramadan = () => {
               if (isCurrentDay) {
                 return 'bg-gradient-to-br from-orange-400 to-orange-500 text-white shadow-md hover:scale-105 cursor-pointer';
               }
-              // Accessible window (J-1, J-2, J-3): very light green
+              // Accessible window (J-1, J-2, J-3): light green
               if (isAccessibleWindow) {
-                return 'bg-[hsl(140,40%,92%)] text-[hsl(140,30%,30%)] hover:scale-105 cursor-pointer';
+                return 'bg-green-200 text-green-800 hover:scale-105 cursor-pointer';
               }
-              // Old locked or future locked: beige/cream
-              if (isOldLockedDay || isFutureLockedDay) {
-                return 'bg-[hsl(40,30%,92%)] text-[hsl(30,20%,50%)] cursor-not-allowed';
+              // Future locked: light gray
+              if (isFutureLockedDay) {
+                return 'bg-gray-200 text-gray-500 cursor-not-allowed';
+              }
+              // Old locked: light gray
+              if (isOldLockedDay) {
+                return 'bg-gray-200 text-gray-500 cursor-not-allowed';
               }
               // Default fallback
-              return 'bg-muted text-muted-foreground cursor-not-allowed';
+              return 'bg-gray-200 text-gray-500 cursor-not-allowed';
             };
 
             return (
