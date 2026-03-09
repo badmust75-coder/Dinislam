@@ -646,7 +646,7 @@ const AdminRamadanManager = ({ onBack }: AdminRamadanManagerProps) => {
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file && selectedDay) {
+    if (file && selectedDay && !uploadVideoMutation.isPending) {
       uploadVideoMutation.mutate({ dayId: selectedDay, file });
     }
     e.target.value = '';
@@ -1155,7 +1155,7 @@ const AdminRamadanManager = ({ onBack }: AdminRamadanManagerProps) => {
               />
               <Button
                 onClick={() => fileInputRef.current?.click()}
-                disabled={uploading}
+                disabled={uploading || uploadVideoMutation.isPending}
                 variant="outline"
                 className="w-full"
               >
@@ -1296,47 +1296,46 @@ const AdminRamadanManager = ({ onBack }: AdminRamadanManagerProps) => {
         </DialogContent>
       </Dialog>
 
-      <ConfirmDeleteDialog
-        open={!!deleteTarget}
-        onOpenChange={(open) => {
-          // Only clear on dismiss (Escape/Cancel), not on confirm action
-          if (!open) {
-            // Use setTimeout to let onConfirm fire first
-            setTimeout(() => setDeleteTarget(null), 0);
+      {deleteTarget && (
+        <ConfirmDeleteDialog
+          open={true}
+          onOpenChange={(open) => {
+            if (!open) {
+              setDeleteTarget(null);
+            }
+          }}
+          onConfirm={() => {
+            const target = deleteTarget;
+            setDeleteTarget(null);
+            if (!target) return;
+            if (target.type === 'quiz' && target.id) {
+              deleteQuizMutation.mutate(target.id);
+              setQuestions(prev => prev.filter(q => q.existingId !== target.id));
+            } else if (target.type === 'allQuizzes' && target.dayId) {
+              deleteAllQuizzesMutation.mutate(target.dayId);
+            } else if (target.type === 'video' && target.id) {
+              deleteVideoMutation.mutate(target.id);
+            } else if (target.type === 'activity' && target.id) {
+              deleteActivityMutation.mutate(target.id);
+            }
+          }}
+          title={
+            deleteTarget.type === 'allQuizzes' ? 'Supprimer toutes les questions ?' :
+            deleteTarget.type === 'video' ? 'Supprimer cette vidéo ?' :
+            deleteTarget.type === 'activity' ? 'Supprimer cette activité ?' :
+            'Supprimer cette question ?'
           }
-        }}
-        onConfirm={() => {
-          // Capture current target before any state changes
-          const target = deleteTarget;
-          if (!target) return;
-          if (target.type === 'quiz' && target.id) {
-            deleteQuizMutation.mutate(target.id);
-            setQuestions(prev => prev.filter(q => q.existingId !== target.id));
-          } else if (target.type === 'allQuizzes' && target.dayId) {
-            deleteAllQuizzesMutation.mutate(target.dayId);
-          } else if (target.type === 'video' && target.id) {
-            deleteVideoMutation.mutate(target.id);
-          } else if (target.type === 'activity' && target.id) {
-            deleteActivityMutation.mutate(target.id);
+          description={
+            deleteTarget.type === 'allQuizzes'
+              ? 'Toutes les questions de ce jour seront supprimées définitivement.'
+              : deleteTarget.type === 'video'
+              ? 'Cette vidéo sera supprimée définitivement.'
+              : deleteTarget.type === 'activity'
+              ? 'Cette activité sera supprimée définitivement.'
+              : 'Cette question sera supprimée définitivement.'
           }
-          setDeleteTarget(null);
-        }}
-        title={
-          deleteTarget?.type === 'allQuizzes' ? 'Supprimer toutes les questions ?' :
-          deleteTarget?.type === 'video' ? 'Supprimer cette vidéo ?' :
-          deleteTarget?.type === 'activity' ? 'Supprimer cette activité ?' :
-          'Supprimer cette question ?'
-        }
-        description={
-          deleteTarget?.type === 'allQuizzes'
-            ? 'Toutes les questions de ce jour seront supprimées définitivement.'
-            : deleteTarget?.type === 'video'
-            ? 'Cette vidéo sera supprimée définitivement.'
-            : deleteTarget?.type === 'activity'
-            ? 'Cette activité sera supprimée définitivement.'
-            : 'Cette question sera supprimée définitivement.'
-        }
-      />
+        />
+      )}
     </div>
   );
 };
