@@ -35,6 +35,33 @@ export type Database = {
         }
         Relationships: []
       }
+      admin_conversations: {
+        Row: {
+          admin_user_id: string
+          created_at: string
+          id: string
+          messages: Json
+          topic: string
+          updated_at: string
+        }
+        Insert: {
+          admin_user_id: string
+          created_at?: string
+          id?: string
+          messages?: Json
+          topic?: string
+          updated_at?: string
+        }
+        Update: {
+          admin_user_id?: string
+          created_at?: string
+          id?: string
+          messages?: Json
+          topic?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       allah_names: {
         Row: {
           created_at: string

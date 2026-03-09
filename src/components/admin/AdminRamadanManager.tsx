@@ -235,6 +235,8 @@ const AdminRamadanManager = ({ onBack }: AdminRamadanManagerProps) => {
       if (error) throw error;
       return data as DayVideo[];
     },
+    refetchOnMount: 'always',
+    staleTime: 0,
   });
 
   // Fetch quizzes
@@ -326,6 +328,8 @@ const AdminRamadanManager = ({ onBack }: AdminRamadanManagerProps) => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-ramadan-day-videos'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-ramadan-days-manager'] });
+      queryClient.refetchQueries({ queryKey: ['admin-ramadan-day-videos'] });
       toast({ title: 'Vidéo téléversée avec succès' });
       setUploading(false);
     },
@@ -901,7 +905,7 @@ const AdminRamadanManager = ({ onBack }: AdminRamadanManagerProps) => {
 
       {/* Days Grid - Calendar style */}
       <h3 className="text-lg font-semibold text-foreground">📅 Les 30 jours</h3>
-      <div className="grid grid-cols-5 sm:grid-cols-6 md:grid-cols-10 gap-2">
+      <div className="grid grid-cols-6 sm:grid-cols-8 md:grid-cols-10 gap-1.5">
         {days.map((day) => {
           const videoCount = getVideosForDay(day.id).length;
           const hasVideo = videoCount > 0 || !!day.video_url;
@@ -921,46 +925,46 @@ const AdminRamadanManager = ({ onBack }: AdminRamadanManagerProps) => {
           return (
             <div
               key={day.id}
-              className={`relative aspect-square rounded-xl flex flex-col items-center justify-center transition-all duration-200 cursor-pointer hover:scale-105 ${getDayBg()}`}
+              className={`relative rounded-lg p-1 flex flex-col items-center justify-center transition-all duration-200 cursor-pointer hover:scale-105 min-h-[56px] ${getDayBg()}`}
               onClick={() => handleOpenDay(day.id)}
             >
-              {/* Lock/unlock indicator top-left */}
-              <span className="absolute top-0.5 left-0.5 text-[8px]">
+              {/* Lock indicator */}
+              <span className="absolute top-0.5 left-0.5 text-[7px] leading-none">
                 {isGloballyUnlocked ? '🔓' : hasExceptions ? '🔑' : '🔒'}
               </span>
 
-              {/* Day content */}
-              {isComplete ? (
-                <>
-                  <Check className="h-4 w-4" />
-                  <span className="text-[10px] mt-0.5">{day.day_number}</span>
-                  <span className="text-[7px] opacity-80 leading-none mt-0.5">{videoCount}V + {quizCount}Q</span>
-                </>
-              ) : (
-                <>
-                  <span className="text-sm">🌙</span>
-                  <span className="text-[11px] font-bold">{day.day_number}</span>
-                  {isPartial && (
-                    <span className="text-[7px] opacity-80 leading-none mt-0.5">{videoCount}V + {quizCount}Q</span>
-                  )}
-                </>
+              {/* Day number */}
+              <span className="text-[10px] font-bold leading-none">{day.day_number}</span>
+
+              {/* Theme title preview */}
+              {day.theme && (
+                <span className="text-[6px] leading-tight text-center opacity-90 line-clamp-2 max-w-full px-0.5 mt-0.5">
+                  {day.theme}
+                </span>
+              )}
+
+              {/* Content counts */}
+              {(isComplete || isPartial) && (
+                <span className="text-[6px] opacity-70 leading-none mt-0.5">{videoCount}V+{quizCount}Q</span>
               )}
 
               {/* Admin action icons */}
-              <button
-                className="absolute bottom-0.5 left-0.5 text-[10px] hover:scale-125 transition-transform z-10"
-                onClick={(e) => { e.stopPropagation(); handleOpenDay(day.id, 'video'); }}
-                title="Gérer les vidéos"
-              >
-                🎬
-              </button>
-              <button
-                className="absolute bottom-0.5 right-0.5 text-[10px] hover:scale-125 transition-transform z-10"
-                onClick={(e) => { e.stopPropagation(); handleOpenDay(day.id, 'quiz'); }}
-                title="Gérer le quiz"
-              >
-                ✏️
-              </button>
+              <div className="absolute bottom-0 left-0 right-0 flex justify-between px-0.5">
+                <button
+                  className="text-[8px] hover:scale-125 transition-transform z-10"
+                  onClick={(e) => { e.stopPropagation(); handleOpenDay(day.id, 'video'); }}
+                  title="Gérer les vidéos"
+                >
+                  🎬
+                </button>
+                <button
+                  className="text-[8px] hover:scale-125 transition-transform z-10"
+                  onClick={(e) => { e.stopPropagation(); handleOpenDay(day.id, 'quiz'); }}
+                  title="Gérer le quiz"
+                >
+                  ✏️
+                </button>
+              </div>
             </div>
           );
         })}
