@@ -79,6 +79,11 @@ const StarMascot = () => {
     return () => window.removeEventListener('resize', handleResize);
   }, [user]);
 
+  // Save position to localStorage when it changes
+  useEffect(() => {
+    localStorage.setItem('starMascot-position', JSON.stringify(position));
+  }, [position]);
+
   // Welcome message when opening
   useEffect(() => {
     if (isOpen && messages.length === 0) {
