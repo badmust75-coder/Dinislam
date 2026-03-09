@@ -243,20 +243,22 @@ const AdminStudentGroups = () => {
     }
   };
 
-  const handleDragEnd = async (event: DragEndEvent) => {
-    if (!groups || groups.length === 0) return;
-    const { active, over } = event;
-    if (!over || active.id === over.id) return;
+  const handleDragStart = (id: string) => setDraggedId(id);
 
-    const oldIndex = groups.findIndex(g => g.id === active.id);
-    const newIndex = groups.findIndex(g => g.id === over.id);
-    const reordered = arrayMove(groups, oldIndex, newIndex);
+  const handleDrop = async (targetId: string) => {
+    if (!draggedId || draggedId === targetId || !groups || groups.length === 0) return;
+    const oldIndex = groups.findIndex(g => g.id === draggedId);
+    const newIndex = groups.findIndex(g => g.id === targetId);
+    if (oldIndex === -1 || newIndex === -1) return;
 
-    // Optimistic update
-    const updated = reordered.map((g: StudentGroup, i: number) => ({ ...g, display_order: i }));
+    const newGroups = [...groups];
+    const [moved] = newGroups.splice(oldIndex, 1);
+    newGroups.splice(newIndex, 0, moved);
+
+    const updated = newGroups.map((g, i) => ({ ...g, display_order: i }));
     queryClient.setQueryData(['student-groups'], updated);
+    setDraggedId(null);
 
-    // Persist to DB
     await Promise.all(
       updated.map((g) =>
         (supabase as any)
