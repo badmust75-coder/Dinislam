@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Home, Mail, CalendarCheck, Shield, Check, BarChart3 } from 'lucide-react';
+import { Home, Mail, CalendarCheck, Shield, Check, BarChart3, Trophy } from 'lucide-react';
 import UserSettingsDialog from '@/components/settings/UserSettingsDialog';
 import AccountSwitcher from '@/components/auth/AccountSwitcher';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -56,6 +56,9 @@ const Header = ({
                   {unreadCount > 9 ? '9+' : unreadCount}
                 </Badge>
               )}
+            </Button>
+            <Button variant="ghost" size="icon" onClick={() => navigate('/classement')} className="text-primary-foreground hover:bg-primary-foreground/10">
+              <Trophy className="h-5 w-5" />
             </Button>
             <Button variant="ghost" size="icon" onClick={() => navigate('/attendance')} className="text-primary-foreground hover:bg-primary-foreground/10">
               <CalendarCheck className="h-5 w-5" />

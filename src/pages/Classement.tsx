@@ -11,20 +11,12 @@ import { useEffect, useState, useMemo } from 'react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
-type GroupFilter = 'global' | 'petits' | 'jeunes' | 'adultes';
-
-const GROUP_FILTERS: { key: GroupFilter; label: string; icon: string }[] = [
-  { key: 'global', label: 'Global', icon: '🌍' },
-  { key: 'petits', label: 'Petits', icon: '🧒' },
-  { key: 'jeunes', label: 'Jeunes', icon: '🧑' },
-  { key: 'adultes', label: 'Adultes', icon: '👤' },
-];
-
 interface RankingEntry {
   user_id: string;
   total_points: number;
   full_name: string | null;
-  prayer_group: string | null;
+  age: number | null;
+  date_of_birth: string | null;
   rank: number;
 }
 
@@ -33,6 +25,12 @@ interface PointSetting {
   module_key: string;
   module_label: string;
   points_per_validation: number;
+}
+
+interface StudentGroup {
+  id: string;
+  name: string;
+  color: string;
 }
 
 const MODULE_ICONS: Record<string, string> = {
@@ -67,12 +65,49 @@ const getEncouragementMessage = (rank: number, total: number) => {
   return { text: 'Ne lâche rien ! Chaque petit pas compte, tu vas y arriver ! ✨', color: 'text-muted-foreground' };
 };
 
+const calculateAge = (dateOfBirth: string | null): number | null => {
+  if (!dateOfBirth) return null;
+  const today = new Date();
+  const dob = new Date(dateOfBirth);
+  let age = today.getFullYear() - dob.getFullYear();
+  const monthDiff = today.getMonth() - dob.getMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < dob.getDate())) {
+    age--;
+  }
+  return age;
+};
+
 const Classement = () => {
   const { user, isAdmin } = useAuth();
   const queryClient = useQueryClient();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [editedPoints, setEditedPoints] = useState<Record<string, number>>({});
-  const [groupFilter, setGroupFilter] = useState<GroupFilter>('global');
+  const [groupFilter, setGroupFilter] = useState<string>('global');
+
+  // Fetch student groups
+  const { data: studentGroups = [] } = useQuery({
+    queryKey: ['student-groups'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('student_groups')
+        .select('id, name, color')
+        .order('display_order');
+      if (error) throw error;
+      return data as StudentGroup[];
+    },
+  });
+
+  // Fetch group members
+  const { data: groupMembers = [] } = useQuery({
+    queryKey: ['student-group-members'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('student_group_members')
+        .select('group_id, user_id');
+      if (error) throw error;
+      return data as { group_id: string; user_id: string }[];
+    },
+  });
 
   const { data: pointSettings = [] } = useQuery({
     queryKey: ['point-settings'],
@@ -102,7 +137,7 @@ const Classement = () => {
 
       const { data: profiles } = await supabase
         .from('profiles')
-        .select('user_id, full_name, prayer_group')
+        .select('user_id, full_name, age, date_of_birth')
         .in('user_id', userIds)
         .limit(200);
 
@@ -121,7 +156,8 @@ const Classement = () => {
           user_id: item.user_id,
           total_points: item.total_points,
           full_name: profile?.full_name || null,
-          prayer_group: profile?.prayer_group || null,
+          age: profile?.age || null,
+          date_of_birth: profile?.date_of_birth || null,
           rank: currentRank,
         });
       }
@@ -135,7 +171,10 @@ const Classement = () => {
     if (!allRankings) return undefined;
     let filtered = allRankings;
     if (groupFilter !== 'global') {
-      filtered = allRankings.filter(e => e.prayer_group === groupFilter);
+      const membersInGroup = groupMembers
+        .filter(m => m.group_id === groupFilter)
+        .map(m => m.user_id);
+      filtered = allRankings.filter(e => membersInGroup.includes(e.user_id));
     }
     // Re-assign ranks within filtered list
     let currentRank = 1;
@@ -147,7 +186,7 @@ const Classement = () => {
       }
       return { ...entry, rank: currentRank };
     });
-  }, [allRankings, groupFilter]);
+  }, [allRankings, groupFilter, groupMembers]);
 
   const myProfile = allRankings?.find(r => r.user_id === user?.id);
   const myInFilter = rankings?.find(r => r.user_id === user?.id);
@@ -203,6 +242,26 @@ const Classement = () => {
     updatePointsMutation.mutate(editedPoints);
   };
 
+  // Determine if a user's name can be displayed
+  const canShowName = (entry: RankingEntry, isMe: boolean): boolean => {
+    if (isMe) return true;
+    if (isAdmin) return true;
+    // For non-admin: show names only for 18+ users when in a group filter
+    if (groupFilter !== 'global') {
+      const computedAge = entry.date_of_birth ? calculateAge(entry.date_of_birth) : entry.age;
+      if (computedAge !== null && computedAge >= 18) return true;
+    }
+    return false;
+  };
+
+  const getDisplayName = (entry: RankingEntry, isMe: boolean): string => {
+    if (isMe) return 'Toi';
+    if (canShowName(entry, isMe)) {
+      return entry.full_name?.split(' ')[0] || 'Élève';
+    }
+    return 'Élève';
+  };
+
   const myRanking = myInFilter;
   const encouragement = myRanking ? getEncouragementMessage(myRanking.rank, rankings?.length || 0) : null;
 
@@ -220,19 +279,30 @@ const Classement = () => {
         </div>
 
         {/* Group filter */}
-        <div className="flex gap-2 justify-center">
-          {GROUP_FILTERS.map(f => (
+        <div className="flex gap-2 justify-center flex-wrap">
+          <button
+            onClick={() => setGroupFilter('global')}
+            className={cn(
+              'px-3 py-1.5 rounded-full text-xs font-semibold transition-all',
+              groupFilter === 'global'
+                ? 'bg-primary text-primary-foreground shadow-md'
+                : 'bg-muted text-muted-foreground hover:bg-muted/80'
+            )}
+          >
+            🌍 Global
+          </button>
+          {studentGroups.map(group => (
             <button
-              key={f.key}
-              onClick={() => setGroupFilter(f.key)}
+              key={group.id}
+              onClick={() => setGroupFilter(group.id)}
               className={cn(
                 'px-3 py-1.5 rounded-full text-xs font-semibold transition-all',
-                groupFilter === f.key
+                groupFilter === group.id
                   ? 'bg-primary text-primary-foreground shadow-md'
                   : 'bg-muted text-muted-foreground hover:bg-muted/80'
               )}
             >
-              {f.icon} {f.label}
+              👥 {group.name}
             </button>
           ))}
         </div>
@@ -275,7 +345,7 @@ const Classement = () => {
             <p>Aucun classement pour le moment</p>
             <p className="text-xs mt-1">
               {groupFilter !== 'global'
-                ? `Aucun élève dans la catégorie "${groupFilter}"`
+                ? 'Aucun élève dans ce groupe'
                 : 'Les points seront attribués à chaque validation !'}
             </p>
           </div>
@@ -298,7 +368,7 @@ const Classement = () => {
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className={cn('font-semibold truncate text-sm', isMe ? 'text-primary' : 'text-foreground')}>
-                      {isMe ? 'Toi' : (entry.full_name?.split(' ')[0] || 'Élève')}
+                      {getDisplayName(entry, isMe)}
                     </p>
                   </div>
                   <div className="flex-shrink-0 w-16 text-right">
@@ -318,7 +388,7 @@ const Classement = () => {
         {/* User not in current filter */}
         {groupFilter !== 'global' && !myInFilter && myProfile && (
           <div className="text-center py-3 px-4 rounded-xl bg-muted/50 border border-border">
-            <p className="text-sm text-muted-foreground">Vous n'êtes pas dans cette catégorie</p>
+            <p className="text-sm text-muted-foreground">Vous n'êtes pas dans ce groupe</p>
           </div>
         )}
 
