@@ -1148,25 +1148,57 @@ const AdminRamadanManager = ({ onBack }: AdminRamadanManagerProps) => {
                 </div>
               )}
 
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="video/*"
-                onChange={handleFileSelect}
-                className="hidden"
-              />
-              <Button
-                onClick={() => fileInputRef.current?.click()}
-                disabled={uploading || uploadVideoMutation.isPending}
-                variant="outline"
-                className="w-full"
-              >
-                {uploading ? (
-                  <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Téléversement...</>
-                ) : (
-                  <><Upload className="h-4 w-4 mr-2" />Ajouter une vidéo</>
-                )}
-              </Button>
+              <Tabs defaultValue="file" className="w-full">
+                <TabsList className="w-full">
+                  <TabsTrigger value="file" className="flex-1 text-xs">📁 Fichier</TabsTrigger>
+                  <TabsTrigger value="youtube" className="flex-1 text-xs">🔗 Lien YouTube</TabsTrigger>
+                </TabsList>
+                <TabsContent value="file">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="video/*"
+                    onChange={handleFileSelect}
+                    className="hidden"
+                  />
+                  <Button
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploading || uploadVideoMutation.isPending}
+                    variant="outline"
+                    className="w-full"
+                  >
+                    {uploading ? (
+                      <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Téléversement...</>
+                    ) : (
+                      <><Upload className="h-4 w-4 mr-2" />Ajouter une vidéo</>
+                    )}
+                  </Button>
+                </TabsContent>
+                <TabsContent value="youtube">
+                  <div className="flex gap-2">
+                    <Input
+                      value={youtubeLink}
+                      onChange={(e) => setYoutubeLink(e.target.value)}
+                      placeholder="Colle ton lien YouTube ici..."
+                      className="flex-1"
+                    />
+                    <Button
+                      disabled={!youtubeLink.trim() || addYoutubeLinkMutation.isPending}
+                      onClick={() => {
+                        if (selectedDay && youtubeLink.trim()) {
+                          addYoutubeLinkMutation.mutate({ dayId: selectedDay, url: youtubeLink.trim() });
+                        }
+                      }}
+                    >
+                      {addYoutubeLinkMutation.isPending ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <>Ajouter</>
+                      )}
+                    </Button>
+                  </div>
+                </TabsContent>
+              </Tabs>
             </div>
 
             {/* Quiz Section: Unlimited with DnD */}
