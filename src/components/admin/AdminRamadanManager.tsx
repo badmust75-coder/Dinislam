@@ -177,6 +177,10 @@ const SortableQuestionCard = ({
 const AdminRamadanManager = ({ onBack }: AdminRamadanManagerProps) => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  useEffect(() => {
+    console.log('[AdminRamadanManager] Table Supabase pour les vidéos : ramadan_day_videos');
+  }, []);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoSectionRef = useRef<HTMLDivElement>(null);
   const quizSectionRef = useRef<HTMLDivElement>(null);
