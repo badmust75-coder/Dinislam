@@ -1278,62 +1278,57 @@ const AdminRamadanManager = ({ onBack }: AdminRamadanManagerProps) => {
               </Label>
 
               {currentActivities.length > 0 && (
-                <div className="space-y-2">
+                <div className="space-y-1.5">
                   {currentActivities.map((activity) => {
-                    const isVideo = activity.file_type?.startsWith('video/');
                     const isAudio = activity.file_type?.startsWith('audio/');
-                    const isImage = activity.file_type?.startsWith('image/');
+                    const contentType: 'fichier' | 'youtube' | 'audio' = isAudio ? 'audio' : 'fichier';
                     return (
-                      <div key={activity.id} className="flex items-center gap-2 p-2 border rounded-lg bg-muted/30">
-                        <div className="flex-shrink-0">
-                          {isVideo ? <Video className="h-4 w-4 text-primary" /> :
-                           isAudio ? <Volume2 className="h-4 w-4 text-primary" /> :
-                           isImage ? <Image className="h-4 w-4 text-primary" /> :
-                           <FileText className="h-4 w-4 text-primary" />}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs truncate font-medium">{activity.file_name}</p>
-                          <p className="text-[10px] text-muted-foreground">{activity.type}</p>
-                        </div>
-                        {isImage && (
-                          <img src={activity.file_url} alt="" className="h-10 w-16 rounded object-cover flex-shrink-0" />
-                        )}
-                        {isVideo && (
-                          <video src={activity.file_url} className="h-10 w-16 rounded object-cover bg-black flex-shrink-0" />
-                        )}
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-destructive flex-shrink-0"
-                          onClick={() => setDeleteTarget({ type: 'activity', id: activity.id })}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
+                      <ContentItemCard
+                        key={activity.id}
+                        id={activity.id}
+                        title={activity.file_name}
+                        contentType={contentType}
+                        url={activity.file_url}
+                        onDelete={(id) => setDeleteTarget({ type: 'activity', id })}
+                        onUpdateTitle={(id, title) => {
+                          supabase.from('ramadan_day_activities').update({ file_name: title }).eq('id', id).then(() => {
+                            queryClient.invalidateQueries({ queryKey: ['admin-ramadan-activities'] });
+                          });
+                        }}
+                      />
                     );
                   })}
                 </div>
               )}
 
-              <input
-                ref={activityInputRef}
-                type="file"
-                accept="image/*,video/*,audio/*,application/pdf,.pdf"
-                onChange={handleActivityFileSelect}
-                className="hidden"
+              <ContentUploadTabs
+                onUploadFile={(file) => {
+                  if (selectedDay) uploadActivityMutation.mutate({ dayId: selectedDay, file });
+                }}
+                onAddYoutubeLink={(embedUrl) => {
+                  if (selectedDay) {
+                    // Save YouTube link as activity
+                    supabase.from('ramadan_day_activities').insert({
+                      day_id: selectedDay,
+                      type: 'youtube',
+                      file_url: embedUrl,
+                      file_name: 'Vidéo YouTube',
+                      file_type: 'youtube',
+                      order_index: currentActivities.length,
+                    }).then(({ error }) => {
+                      if (error) toast({ title: 'Erreur', variant: 'destructive' });
+                      else {
+                        queryClient.invalidateQueries({ queryKey: ['admin-ramadan-activities'] });
+                        toast({ title: 'Lien YouTube ajouté ✅' });
+                      }
+                    });
+                  }
+                }}
+                onUploadAudio={(file) => {
+                  if (selectedDay) uploadActivityMutation.mutate({ dayId: selectedDay, file });
+                }}
+                isUploading={uploadingActivity}
               />
-              <Button
-                onClick={() => activityInputRef.current?.click()}
-                disabled={uploadingActivity}
-                variant="outline"
-                className="w-full"
-              >
-                {uploadingActivity ? (
-                  <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Téléversement...</>
-                ) : (
-                  <><Upload className="h-4 w-4 mr-2" />Ajouter une activité (PDF, image, vidéo, audio)</>
-                )}
-              </Button>
             </div>
           </div>
         </DialogContent>
