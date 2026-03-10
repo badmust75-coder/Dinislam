@@ -138,9 +138,9 @@ const AdminAlphabetContent = () => {
                 )}
                 {letterContents.length === 0 && <p className="text-xs text-muted-foreground italic">Aucun contenu</p>}
                 <ContentUploadTabs
-                  onUploadFile={(file) => uploadToStorage(letter.id, 'fichier' as any, file as any)}
+                  onUploadFile={(file) => uploadToStorage(letter.id, file, 'fichier')}
                   onAddYoutubeLink={(url) => handleAddYoutube(letter.id, url)}
-                  onUploadAudio={(file) => uploadToStorage(letter.id, 'audio' as any, file as any)}
+                  onUploadAudio={(file) => uploadToStorage(letter.id, file, 'audio')}
                   isUploading={isUploading}
                 />
               </CardContent>
