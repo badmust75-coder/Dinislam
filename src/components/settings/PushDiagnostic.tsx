@@ -153,13 +153,13 @@ export default function PushDiagnostic() {
     } else {
       try {
         const keys = newSub.toJSON().keys;
-        const { error: upsertErr } = await supabase
+        const { error: upsertErr } = await (supabase as any)
           .from('push_subscriptions')
           .upsert({
             user_id: user.id,
             endpoint: newSub.endpoint,
             p256dh: keys.p256dh,
-            auth: keys.auth
+            auth_key: keys.auth
           }, { onConflict: 'user_id,endpoint' });
 
         if (upsertErr) {

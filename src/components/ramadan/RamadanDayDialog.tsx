@@ -143,7 +143,7 @@ const RamadanDayDialog = ({
         .eq('day_id', dayId)
         .order('order_index');
       if (error) throw error;
-      return data as DayActivity[];
+      return data as unknown as DayActivity[];
     },
     enabled: open && !!dayId,
   });

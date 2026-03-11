@@ -37,9 +37,9 @@ const FastingTracker = () => {
           .eq('id', existing.id);
         if (error) throw error;
       } else {
-        const { error } = await supabase
+        const { error } = await (supabase as any)
           .from('user_ramadan_fasting')
-          .insert({ user_id: user.id, day_number: dayNumber, has_fasted: hasFasted });
+          .insert({ user_id: user.id, day_number: dayNumber, has_fasted: hasFasted, date: new Date().toISOString().split('T')[0] });
         if (error) throw error;
       }
     },
