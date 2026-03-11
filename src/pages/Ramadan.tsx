@@ -176,7 +176,7 @@ const Ramadan = () => {
     return isFutureDay(day) || isOldLocked(day);
   };
 
-  const getDayUnlockTime = (dayNumber: number): Date | null => {
+  const getDayUnlockTime = (dayNumber: number | string): Date | null => {
     if (!settings?.started_at) return null;
     const startDate = new Date(settings.started_at);
     if (dayNumber === 1) return startDate;
