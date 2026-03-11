@@ -52,7 +52,7 @@ const AdminSourateContent = () => {
     },
   });
 
-  const uploadToStorage = useCallback(async (sourateId: number, file: File, contentType: string) => {
+  const uploadToStorage = useCallback(async (sourateId: string, file: File, contentType: string) => {
     if (!user?.id) { toast.error('Vous devez être connecté'); return; }
     setIsUploading(true);
     try {
@@ -75,7 +75,7 @@ const AdminSourateContent = () => {
     finally { setIsUploading(false); }
   }, [user, contents, refetchContents]);
 
-  const handleAddYoutube = useCallback(async (sourateId: number, embedUrl: string) => {
+  const handleAddYoutube = useCallback(async (sourateId: string, embedUrl: string) => {
     if (!user?.id) return;
     setIsUploading(true);
     try {
@@ -120,7 +120,7 @@ const AdminSourateContent = () => {
     onError: () => toast.error('Erreur lors de la suppression'),
   });
 
-  const toggleUnlock = async (userId: string, sourateId: number) => {
+  const toggleUnlock = async (userId: string, sourateId: string) => {
     const existing = unlocks.find(u => u.user_id === userId && u.sourate_id === sourateId);
     if (existing) {
       await supabase.from('sourate_admin_unlocks').delete().eq('id', existing.id);

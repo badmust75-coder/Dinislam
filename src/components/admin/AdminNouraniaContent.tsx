@@ -46,7 +46,7 @@ const AdminNouraniaContent = () => {
     }
   };
 
-  const handleUploadFile = useCallback(async (lessonId: number, file: File) => {
+  const handleUploadFile = useCallback(async (lessonId: string, file: File) => {
     if (!user?.id) { toast.error('Vous devez être connecté'); return; }
     setIsUploading(true);
     try {
@@ -69,7 +69,7 @@ const AdminNouraniaContent = () => {
     finally { setIsUploading(false); }
   }, [user, contents, refetchContents]);
 
-  const handleAddYoutube = useCallback(async (lessonId: number, embedUrl: string) => {
+  const handleAddYoutube = useCallback(async (lessonId: string, embedUrl: string) => {
     if (!user?.id) return;
     setIsUploading(true);
     try {
@@ -85,7 +85,7 @@ const AdminNouraniaContent = () => {
     finally { setIsUploading(false); }
   }, [user, contents, refetchContents]);
 
-  const handleUploadAudio = useCallback(async (lessonId: number, file: File) => {
+  const handleUploadAudio = useCallback(async (lessonId: string, file: File) => {
     if (!user?.id) { toast.error('Vous devez être connecté'); return; }
     setIsUploading(true);
     try {

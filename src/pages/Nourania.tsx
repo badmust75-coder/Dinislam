@@ -19,8 +19,8 @@ const Nourania = () => {
   const { fireSuccess } = useConfetti();
   const [searchParams] = useSearchParams();
   const lessonParam = searchParams.get('lesson');
-  const [expandedLesson, setExpandedLesson] = useState<number | null>(null);
-  const [unlockDialog, setUnlockDialog] = useState<{ open: boolean; lessonNumber: number; lessonId: number } | null>(null);
+  const [expandedLesson, setExpandedLesson] = useState<string | null>(null);
+  const [unlockDialog, setUnlockDialog] = useState<{ open: boolean; lessonNumber: number; lessonId: string } | null>(null);
 
   // Fetch lessons
   const { data: lessons = [] } = useQuery({
@@ -136,13 +136,13 @@ const Nourania = () => {
   const totalLessons = lessons.length || 17;
   const progressPercentage = Math.round((validatedCount / totalLessons) * 100);
 
-  const isLessonValidated = (lessonId: number) =>
+  const isLessonValidated = (lessonId: string) =>
     userProgress.some(p => p.lesson_id === lessonId && p.is_validated);
 
-  const isLessonPendingValidation = (lessonId: number) =>
+  const isLessonPendingValidation = (lessonId: string) =>
     pendingRequests.some(p => p.lesson_id === lessonId && p.status === 'pending');
 
-  const hasLessonBeenStarted = (lessonId: number) =>
+  const hasLessonBeenStarted = (lessonId: string) =>
     userProgress.some(p => p.lesson_id === lessonId) || pendingRequests.some(p => p.lesson_id === lessonId);
 
   const isLessonUnlocked = (index: number) => {
@@ -153,7 +153,7 @@ const Nourania = () => {
 
   // Submit validation request (instead of auto-validating)
   const submitValidationMutation = useMutation({
-    mutationFn: async (lessonId: number) => {
+    mutationFn: async (lessonId: string) => {
       if (!user?.id) throw new Error('Non connecté');
 
       // Check if already requested
@@ -167,7 +167,7 @@ const Nourania = () => {
 
       if (existing) throw new Error('Demande déjà envoyée');
 
-      const { error } = await supabase
+      const { error } = await (supabase as any)
         .from('nourania_validation_requests')
         .insert({ user_id: user.id, lesson_id: lessonId });
       if (error) throw error;
@@ -218,7 +218,7 @@ const Nourania = () => {
   };
 
   // Get moon color classes based on lesson status
-  const getMoonColors = (lessonId: number, index: number) => {
+  const getMoonColors = (lessonId: string, index: number) => {
     const validated = isLessonValidated(lessonId);
     const pending = isLessonPendingValidation(lessonId);
     const started = hasLessonBeenStarted(lessonId);

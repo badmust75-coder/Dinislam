@@ -14,7 +14,7 @@ import { toast } from 'sonner';
 
 interface Quiz {
   id: string;
-  day_id: number;
+  day_id: string;
   question: string;
   options: string[];
   correct_option: number | null;
@@ -32,7 +32,7 @@ interface DayVideo {
 
 interface DayActivity {
   id: string;
-  day_id: number;
+  day_id: string;
   type: string;
   file_url: string;
   file_name: string;
@@ -44,7 +44,7 @@ interface RamadanDayDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   dayNumber: number;
-  dayId: number;
+  dayId: string;
   theme: string | null;
   videoUrl: string | null;
   videos: DayVideo[];
@@ -111,7 +111,7 @@ const RamadanDayDialog = ({
     queryKey: ['ramadan-video-watched', user?.id, dayId],
     queryFn: async () => {
       if (!user) return [];
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('user_ramadan_video_watched')
         .select('video_id')
         .eq('user_id', user.id)
@@ -143,7 +143,7 @@ const RamadanDayDialog = ({
         .eq('day_id', dayId)
         .order('order_index');
       if (error) throw error;
-      return data as DayActivity[];
+      return data as unknown as DayActivity[];
     },
     enabled: open && !!dayId,
   });

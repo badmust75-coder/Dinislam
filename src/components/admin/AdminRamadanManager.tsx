@@ -45,7 +45,7 @@ interface AdminRamadanManagerProps {
 
 interface Quiz {
   id: string;
-  day_id: number;
+  day_id: string;
   question: string;
   options: string[];
   correct_option: number | null;
@@ -55,7 +55,7 @@ interface Quiz {
 
 interface DayVideo {
   id: string;
-  day_id: number;
+  day_id: string;
   video_url: string;
   file_name: string | null;
   display_order: number;
@@ -185,11 +185,11 @@ const AdminRamadanManager = ({ onBack }: AdminRamadanManagerProps) => {
   const videoSectionRef = useRef<HTMLDivElement>(null);
   const quizSectionRef = useRef<HTMLDivElement>(null);
 
-  const [selectedDay, setSelectedDay] = useState<number | null>(null);
+  const [selectedDay, setSelectedDay] = useState<string | null>(null);
   const [scrollToSection, setScrollToSection] = useState<'video' | 'quiz' | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadingActivity, setUploadingActivity] = useState(false);
-  const [deleteTarget, setDeleteTarget] = useState<{ type: 'quiz' | 'allQuizzes' | 'video' | 'activity'; id?: string; dayId?: number } | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<{ type: 'quiz' | 'allQuizzes' | 'video' | 'activity'; id?: string; dayId?: string } | null>(null);
   const activityInputRef = useRef<HTMLInputElement>(null);
   const [themeInput, setThemeInput] = useState('');
   const [savingTheme, setSavingTheme] = useState(false);
@@ -241,7 +241,7 @@ const AdminRamadanManager = ({ onBack }: AdminRamadanManagerProps) => {
         .select('*')
         .order('display_order');
       if (error || !data) return [] as DayVideo[];
-      return data as DayVideo[];
+      return data as unknown as DayVideo[];
     },
     refetchOnMount: 'always',
     staleTime: 0,
@@ -256,7 +256,7 @@ const AdminRamadanManager = ({ onBack }: AdminRamadanManagerProps) => {
       return data.map(q => ({
         ...q,
         options: Array.isArray(q.options) ? q.options : JSON.parse(q.options as string)
-      })) as Quiz[];
+      })) as unknown as Quiz[];
     },
   });
 
@@ -289,16 +289,16 @@ const AdminRamadanManager = ({ onBack }: AdminRamadanManagerProps) => {
     queryFn: async () => {
       const { data, error } = await (supabase as any).from('ramadan_day_exceptions').select('*');
       if (error) throw error;
-      return data as { id: string; user_id: string; day_id: number; is_unlocked: boolean; created_at: string }[];
+      return data as { id: string; user_id: string; day_id: string; is_unlocked: boolean; created_at: string }[];
     },
   });
 
   const [selectedStudentForException, setSelectedStudentForException] = useState<string>('');
 
-  const getQuizzesForDay = (dayId: number) => quizzes.filter(q => q.day_id === dayId).sort((a, b) => a.question_order - b.question_order);
-  const getVideosForDay = (dayId: number) => dayVideos.filter(v => v.day_id === dayId);
-  const getActivitiesForDay = (dayId: number) => dayActivities.filter(a => a.day_id === dayId);
-  const getExceptionsForDay = (dayId: number) => dayExceptions.filter(e => e.day_id === dayId && e.is_unlocked);
+  const getQuizzesForDay = (dayId: string) => quizzes.filter(q => q.day_id === dayId).sort((a, b) => a.question_order - b.question_order);
+  const getVideosForDay = (dayId: string) => dayVideos.filter(v => v.day_id === dayId);
+  const getActivitiesForDay = (dayId: string) => dayActivities.filter(a => (a as any).day_id === dayId);
+  const getExceptionsForDay = (dayId: string) => dayExceptions.filter(e => e.day_id === dayId && e.is_unlocked);
   const currentDayData = days.find(d => d.id === selectedDay);
   const currentQuizzes = selectedDay ? getQuizzesForDay(selectedDay) : [];
   const currentVideos = selectedDay ? getVideosForDay(selectedDay) : [];
@@ -307,7 +307,7 @@ const AdminRamadanManager = ({ onBack }: AdminRamadanManagerProps) => {
 
   // Upload video mutation (multi-video)
   const uploadVideoMutation = useMutation({
-    mutationFn: async ({ dayId, file }: { dayId: number; file: File }) => {
+    mutationFn: async ({ dayId, file }: { dayId: string; file: File }) => {
       setUploading(true);
       const fileExt = file.name.split('.').pop();
       const fileName = `day-${dayId}-${Date.now()}.${fileExt}`;
@@ -377,7 +377,7 @@ const AdminRamadanManager = ({ onBack }: AdminRamadanManagerProps) => {
   };
 
   const addYoutubeLinkMutation = useMutation({
-    mutationFn: async ({ dayId, url }: { dayId: number; url: string }) => {
+    mutationFn: async ({ dayId, url }: { dayId: string; url: string }) => {
       const embedUrl = convertYoutubeToEmbed(url);
       if (!embedUrl) throw new Error('Lien YouTube invalide');
       const existingVideos = getVideosForDay(dayId);
@@ -401,7 +401,7 @@ const AdminRamadanManager = ({ onBack }: AdminRamadanManagerProps) => {
 
   // Save theme mutation
   const saveThemeMutation = useMutation({
-    mutationFn: async ({ dayId, theme }: { dayId: number; theme: string }) => {
+    mutationFn: async ({ dayId, theme }: { dayId: string; theme: string }) => {
       const { error } = await supabase
         .from('ramadan_days')
         .update({ theme: theme || null })
@@ -421,7 +421,7 @@ const AdminRamadanManager = ({ onBack }: AdminRamadanManagerProps) => {
 
   // Save quiz questions (unlimited, with explanation and order) — no duplicates
   const saveQuizzesMutation = useMutation({
-    mutationFn: async ({ dayId, questionForms }: { dayId: number; questionForms: QuestionForm[] }) => {
+    mutationFn: async ({ dayId, questionForms }: { dayId: string; questionForms: QuestionForm[] }) => {
       // Fetch all existing questions for this day to detect duplicates
       const { data: existingQuizzes } = await supabase
         .from('ramadan_quizzes')
@@ -459,7 +459,7 @@ const AdminRamadanManager = ({ onBack }: AdminRamadanManagerProps) => {
             skippedCount++;
             continue;
           }
-          const { error } = await supabase
+          const { error } = await (supabase as any)
             .from('ramadan_quizzes')
             .insert({
               day_id: dayId,
@@ -506,7 +506,7 @@ const AdminRamadanManager = ({ onBack }: AdminRamadanManagerProps) => {
 
   // Delete all quizzes for a day
   const deleteAllQuizzesMutation = useMutation({
-    mutationFn: async (dayId: number) => {
+    mutationFn: async (dayId: string) => {
       const dayQuizzes = getQuizzesForDay(dayId);
       for (const q of dayQuizzes) {
         await supabase.from('quiz_responses').delete().eq('quiz_id', q.id);
@@ -522,7 +522,7 @@ const AdminRamadanManager = ({ onBack }: AdminRamadanManagerProps) => {
 
   // Upload activity mutation
   const uploadActivityMutation = useMutation({
-    mutationFn: async ({ dayId, file }: { dayId: number; file: File }) => {
+    mutationFn: async ({ dayId, file }: { dayId: string; file: File }) => {
       setUploadingActivity(true);
       const fileExt = file.name.split('.').pop();
       const fileName = `activity-${dayId}-${Date.now()}.${fileExt}`;
@@ -543,7 +543,7 @@ const AdminRamadanManager = ({ onBack }: AdminRamadanManagerProps) => {
       else if (file.type.startsWith('image/')) type = 'document';
 
       const existingActivities = getActivitiesForDay(dayId);
-      const { error: insertError } = await supabase
+      const { error: insertError } = await (supabase as any)
         .from('ramadan_day_activities')
         .insert({
           day_id: dayId,
@@ -707,7 +707,7 @@ const AdminRamadanManager = ({ onBack }: AdminRamadanManagerProps) => {
     e.target.value = '';
   };
 
-  const handleOpenDay = (dayId: number, section?: 'video' | 'quiz') => {
+  const handleOpenDay = (dayId: string, section?: 'video' | 'quiz') => {
     setSelectedDay(dayId);
     setScrollToSection(section || null);
     const day = days.find(d => d.id === dayId);
@@ -1312,7 +1312,7 @@ const AdminRamadanManager = ({ onBack }: AdminRamadanManagerProps) => {
                 onAddYoutubeLink={(embedUrl) => {
                   if (selectedDay) {
                     // Save YouTube link as activity
-                    supabase.from('ramadan_day_activities').insert({
+                    (supabase as any).from('ramadan_day_activities').insert({
                       day_id: selectedDay,
                       type: 'youtube',
                       file_url: embedUrl,

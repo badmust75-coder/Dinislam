@@ -87,7 +87,7 @@ const AdminContent = () => {
           pdf_url: item.data.pdf_url as string,
           theme: item.data.theme as string,
         })
-        .eq('id', item.id as number);
+        .eq('id', String(item.id));
       if (error) throw error;
     },
     onSuccess: () => {
@@ -110,7 +110,7 @@ const AdminContent = () => {
           title_french: item.data.title_french as string,
           title_arabic: item.data.title_arabic as string,
         })
-        .eq('id', item.id as number);
+        .eq('id', String(item.id));
       if (error) throw error;
     },
     onSuccess: () => {
@@ -130,7 +130,7 @@ const AdminContent = () => {
         .update({
           audio_url: item.data.audio_url as string,
         })
-        .eq('id', item.id as number);
+        .eq('id', String(item.id));
       if (error) throw error;
     },
     onSuccess: () => {

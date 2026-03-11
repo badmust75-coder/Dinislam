@@ -346,9 +346,9 @@ const Admin = () => {
       }));
 
       for (const item of upsertData) {
-        await supabase
+        await (supabase as any)
           .from('admin_card_order')
-          .upsert(item, { onConflict: 'card_key' });
+          .upsert({ ...item, user_id: user?.id }, { onConflict: 'card_key' });
       }
     },
     onSuccess: () => {

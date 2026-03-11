@@ -27,7 +27,7 @@ interface StudentQuizDetail {
 
 const AdminRamadanQuizTracking = ({ onBack }: AdminRamadanQuizTrackingProps) => {
   const [selectedStudent, setSelectedStudent] = useState<{ user_id: string; full_name: string | null; email: string | null } | null>(null);
-  const [selectedDay, setSelectedDay] = useState<number | null>(null);
+  const [selectedDay, setSelectedDay] = useState<string | null>(null);
 
   // Fetch all students
   const { data: students = [] } = useQuery({

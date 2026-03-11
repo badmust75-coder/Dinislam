@@ -33,7 +33,7 @@ const AdminNouraniaValidations = ({ onBack }: AdminNouraniaValidationsProps) => 
 
       const [{ data: profiles }, { data: lessons }] = await Promise.all([
         supabase.from('profiles').select('user_id, full_name, email').in('user_id', userIds.length ? userIds : ['none']),
-        supabase.from('nourania_lessons').select('id, lesson_number, title_arabic, title_french').in('id', lessonIds.length ? lessonIds : [0]),
+        supabase.from('nourania_lessons').select('id, lesson_number, title_arabic, title_french').in('id', lessonIds.length ? lessonIds as string[] : ['none']),
       ]);
 
       return (data || []).map(req => ({

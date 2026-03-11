@@ -13,7 +13,7 @@ import RamadanDayDialog from '@/components/ramadan/RamadanDayDialog';
 import FastingTracker from '@/components/ramadan/FastingTracker';
 
 interface RamadanDay {
-  id: number;
+  id: string;
   day_number: number;
   theme: string | null;
   video_url: string | null;
@@ -23,7 +23,7 @@ interface RamadanDay {
 
 interface DayVideo {
   id: string;
-  day_id: number;
+  day_id: string;
   video_url: string;
   file_name: string | null;
   display_order: number;
@@ -31,7 +31,7 @@ interface DayVideo {
 
 interface Quiz {
   id: string;
-  day_id: number;
+  day_id: string;
   question: string;
   options: string[];
   correct_option: number | null;
@@ -42,7 +42,7 @@ interface Quiz {
 
 interface UserProgress {
   id: string;
-  day_id: number;
+  day_id: string;
   video_watched: boolean;
   quiz_completed: boolean;
   pdf_read: boolean;
@@ -98,7 +98,7 @@ const Ramadan = () => {
       if (!user?.id) return [];
       const { data, error } = await (supabase as any).from('ramadan_day_exceptions').select('*').eq('user_id', user.id).eq('is_unlocked', true);
       if (error) throw error;
-      return data as { id: string; user_id: string; day_id: number; is_unlocked: boolean }[];
+      return data as unknown as { id: string; user_id: string; day_id: string; is_unlocked: boolean }[];
     },
     enabled: !!user?.id,
   });
@@ -112,7 +112,7 @@ const Ramadan = () => {
         ...q,
         options: Array.isArray(q.options) ? q.options : JSON.parse(q.options as string),
         correct_options: Array.isArray((q as any).correct_options) ? (q as any).correct_options : [],
-      })) as Quiz[];
+      })) as unknown as Quiz[];
     },
   });
 
@@ -124,7 +124,7 @@ const Ramadan = () => {
         .select('*')
         .order('display_order');
       if (error || !data) return [] as DayVideo[];
-      return data as DayVideo[];
+      return data as unknown as DayVideo[];
     },
   });
 
@@ -134,7 +134,7 @@ const Ramadan = () => {
       if (!user?.id) return [];
       const { data, error } = await supabase.from('user_ramadan_progress').select('*').eq('user_id', user.id);
       if (error) throw error;
-      return data as UserProgress[];
+      return data as unknown as UserProgress[];
     },
     enabled: !!user?.id,
   });
@@ -215,16 +215,16 @@ const Ramadan = () => {
   };
 
   const markProgressMutation = useMutation({
-    mutationFn: async ({ dayId, field }: { dayId: number; field: 'video_watched' | 'quiz_completed' }) => {
+    mutationFn: async ({ dayId, field }: { dayId: string; field: 'video_watched' | 'quiz_completed' }) => {
       if (!user?.id) throw new Error('Non connecté');
       const existingProgress = userProgress.find(p => p.day_id === dayId);
       if (existingProgress) {
-        const { error } = await supabase.from('user_ramadan_progress')
-          .update({ [field]: true, updated_at: new Date().toISOString() })
+        const { error } = await (supabase as any).from('user_ramadan_progress')
+          .update({ [field]: true })
           .eq('id', existingProgress.id);
         if (error) throw error;
       } else {
-        const { error } = await supabase.from('user_ramadan_progress')
+        const { error } = await (supabase as any).from('user_ramadan_progress')
           .insert({ user_id: user.id, day_id: dayId, [field]: true });
         if (error) throw error;
       }
@@ -235,8 +235,8 @@ const Ramadan = () => {
   const saveQuizResponseMutation = useMutation({
     mutationFn: async ({ quizId, selectedOption, attemptNumber, isCorrect }: { quizId: string; selectedOption: number; attemptNumber: number; isCorrect: boolean }) => {
       if (!user?.id) throw new Error('Non connecté');
-      const { error } = await supabase.from('quiz_responses')
-        .insert({ user_id: user.id, quiz_id: quizId, selected_option: selectedOption, attempt_number: attemptNumber, is_correct: isCorrect });
+      const { error } = await (supabase as any).from('quiz_responses')
+        .insert({ user_id: user.id, quiz_id: quizId, selected_answer: String(selectedOption), attempt_number: attemptNumber, is_correct: isCorrect });
       if (error) throw error;
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['ramadan-quiz-responses'] }),
