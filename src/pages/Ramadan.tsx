@@ -215,16 +215,16 @@ const Ramadan = () => {
   };
 
   const markProgressMutation = useMutation({
-    mutationFn: async ({ dayId, field }: { dayId: number; field: 'video_watched' | 'quiz_completed' }) => {
+    mutationFn: async ({ dayId, field }: { dayId: string; field: 'video_watched' | 'quiz_completed' }) => {
       if (!user?.id) throw new Error('Non connecté');
       const existingProgress = userProgress.find(p => p.day_id === dayId);
       if (existingProgress) {
-        const { error } = await supabase.from('user_ramadan_progress')
-          .update({ [field]: true, updated_at: new Date().toISOString() })
+        const { error } = await (supabase as any).from('user_ramadan_progress')
+          .update({ [field]: true })
           .eq('id', existingProgress.id);
         if (error) throw error;
       } else {
-        const { error } = await supabase.from('user_ramadan_progress')
+        const { error } = await (supabase as any).from('user_ramadan_progress')
           .insert({ user_id: user.id, day_id: dayId, [field]: true });
         if (error) throw error;
       }
