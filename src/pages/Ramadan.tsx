@@ -124,7 +124,7 @@ const Ramadan = () => {
         .select('*')
         .order('display_order');
       if (error || !data) return [] as DayVideo[];
-      return data as DayVideo[];
+      return data as unknown as DayVideo[];
     },
   });
 
