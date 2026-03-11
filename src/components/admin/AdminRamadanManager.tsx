@@ -401,7 +401,7 @@ const AdminRamadanManager = ({ onBack }: AdminRamadanManagerProps) => {
 
   // Save theme mutation
   const saveThemeMutation = useMutation({
-    mutationFn: async ({ dayId, theme }: { dayId: number; theme: string }) => {
+    mutationFn: async ({ dayId, theme }: { dayId: string; theme: string }) => {
       const { error } = await supabase
         .from('ramadan_days')
         .update({ theme: theme || null })
