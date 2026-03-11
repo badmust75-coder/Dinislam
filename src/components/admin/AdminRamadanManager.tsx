@@ -295,10 +295,10 @@ const AdminRamadanManager = ({ onBack }: AdminRamadanManagerProps) => {
 
   const [selectedStudentForException, setSelectedStudentForException] = useState<string>('');
 
-  const getQuizzesForDay = (dayId: number) => quizzes.filter(q => q.day_id === dayId).sort((a, b) => a.question_order - b.question_order);
-  const getVideosForDay = (dayId: number) => dayVideos.filter(v => v.day_id === dayId);
-  const getActivitiesForDay = (dayId: number) => dayActivities.filter(a => a.day_id === dayId);
-  const getExceptionsForDay = (dayId: number) => dayExceptions.filter(e => e.day_id === dayId && e.is_unlocked);
+  const getQuizzesForDay = (dayId: string) => quizzes.filter(q => q.day_id === dayId).sort((a, b) => a.question_order - b.question_order);
+  const getVideosForDay = (dayId: string) => dayVideos.filter(v => v.day_id === dayId);
+  const getActivitiesForDay = (dayId: string) => dayActivities.filter(a => (a as any).day_id === dayId);
+  const getExceptionsForDay = (dayId: string) => dayExceptions.filter(e => e.day_id === dayId && e.is_unlocked);
   const currentDayData = days.find(d => d.id === selectedDay);
   const currentQuizzes = selectedDay ? getQuizzesForDay(selectedDay) : [];
   const currentVideos = selectedDay ? getVideosForDay(selectedDay) : [];
