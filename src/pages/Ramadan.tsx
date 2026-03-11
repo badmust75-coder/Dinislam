@@ -152,9 +152,9 @@ const Ramadan = () => {
 
   const completedDays = userProgress.filter(p => p.quiz_completed).length;
   const progressPercentage = Math.round((completedDays / 30) * 100);
-  const getDayProgress = (dayId: number) => userProgress.find(p => p.day_id === dayId);
-  const getVideosForDay = (dayId: number) => dayVideos.filter(v => v.day_id === dayId);
-  const getQuizzesForDay = (dayId: number) => quizzes.filter(q => q.day_id === dayId);
+  const getDayProgress = (dayId: string) => userProgress.find(p => p.day_id === dayId);
+  const getVideosForDay = (dayId: string) => dayVideos.filter(v => v.day_id === dayId);
+  const getQuizzesForDay = (dayId: string) => quizzes.filter(q => q.day_id === dayId);
 
   // Date-based auto-lock: Ramadan starts March 1, 2026
   const ramadanStart = new Date('2026-03-01T00:00:00');
