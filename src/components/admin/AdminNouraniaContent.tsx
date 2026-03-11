@@ -46,7 +46,7 @@ const AdminNouraniaContent = () => {
     }
   };
 
-  const handleUploadFile = useCallback(async (lessonId: number, file: File) => {
+  const handleUploadFile = useCallback(async (lessonId: string, file: File) => {
     if (!user?.id) { toast.error('Vous devez être connecté'); return; }
     setIsUploading(true);
     try {
