@@ -30,6 +30,7 @@ const AdminRegistrationValidations = ({ onBack }: { onBack: () => void }) => {
         .from('profiles')
         .select('*')
         .eq('is_approved', false)
+        .not('email', 'eq', 'nadiaelb341@outlook.com')
         .order('created_at', { ascending: false });
       setRegistrations(data || []);
       setIsLoading(false);
