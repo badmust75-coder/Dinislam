@@ -27,11 +27,11 @@ const AdminRegistrationValidations = ({ onBack }: { onBack: () => void }) => {
   const { data: allUsers, isLoading } = useQuery({
     queryKey: ['admin-all-registrations'],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('profiles')
-        .select('user_id, email, full_name, gender, age, created_at, is_approved')
-        .order('is_approved', { ascending: true })
-        .order('full_name', { ascending: true });
+        .select('*')
+        .eq('is_approved', false)
+        .order('created_at', { ascending: false });
 
       if (error) throw error;
       return (data || []) as RegistrationUser[];
