@@ -136,13 +136,13 @@ const Nourania = () => {
   const totalLessons = lessons.length || 17;
   const progressPercentage = Math.round((validatedCount / totalLessons) * 100);
 
-  const isLessonValidated = (lessonId: number) =>
+  const isLessonValidated = (lessonId: string) =>
     userProgress.some(p => p.lesson_id === lessonId && p.is_validated);
 
-  const isLessonPendingValidation = (lessonId: number) =>
+  const isLessonPendingValidation = (lessonId: string) =>
     pendingRequests.some(p => p.lesson_id === lessonId && p.status === 'pending');
 
-  const hasLessonBeenStarted = (lessonId: number) =>
+  const hasLessonBeenStarted = (lessonId: string) =>
     userProgress.some(p => p.lesson_id === lessonId) || pendingRequests.some(p => p.lesson_id === lessonId);
 
   const isLessonUnlocked = (index: number) => {
