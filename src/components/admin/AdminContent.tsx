@@ -110,7 +110,7 @@ const AdminContent = () => {
           title_french: item.data.title_french as string,
           title_arabic: item.data.title_arabic as string,
         })
-        .eq('id', item.id as number);
+        .eq('id', String(item.id));
       if (error) throw error;
     },
     onSuccess: () => {
