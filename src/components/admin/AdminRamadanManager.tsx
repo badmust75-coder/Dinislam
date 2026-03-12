@@ -879,7 +879,43 @@ const AdminRamadanManager = ({ onBack }: AdminRamadanManagerProps) => {
         </div>
       </div>
 
-      {/* Top Départ */}
+      {/* Date de début Ramadan */}
+      <Card className="border-blue-300 dark:border-blue-700">
+        <CardContent className="p-4">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="p-3 rounded-xl bg-blue-100 dark:bg-blue-900/30">
+              <Calendar className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+            </div>
+            <div>
+              <p className="font-bold text-foreground">Date de début Ramadan</p>
+              <p className="text-sm text-muted-foreground">
+                {settings?.start_date ? `Actuellement : ${settings.start_date}` : 'Non définie'}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <Input
+              type="date"
+              value={startDateInput}
+              onChange={(e) => setStartDateInput(e.target.value)}
+              className="flex-1"
+            />
+            <Button
+              onClick={() => {
+                if (startDateInput) {
+                  setSavingStartDate(true);
+                  saveStartDateMutation.mutate(startDateInput);
+                }
+              }}
+              disabled={savingStartDate || !startDateInput}
+              size="sm"
+            >
+              {savingStartDate ? <Loader2 className="h-4 w-4 animate-spin" /> : <><Save className="h-4 w-4 mr-1" />Enregistrer</>}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
       <Card className={settings?.start_enabled ? 'border-green-500 bg-green-50 dark:bg-green-950/20' : ''}>
         <CardContent className="p-4">
           <div className="flex items-center justify-between">
