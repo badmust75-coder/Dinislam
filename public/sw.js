@@ -1,16 +1,13 @@
-const CACHE_NAME = 'dini-bismillah-v5';
+const CACHE_NAME = 'dini-bismillah-v6';
 
-self.addEventListener('install', (e) => {
+self.addEventListener('install', () => {
   self.skipWaiting();
 });
 
 self.addEventListener('activate', (e) => {
   e.waitUntil(
-    caches.keys().then(keys =>
-      Promise.all(keys
-        .filter(k => k !== CACHE_NAME)
-        .map(k => caches.delete(k))
-      )
+    caches.keys().then((keys) =>
+      Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)))
     ).then(() => self.clients.claim())
   );
 });
@@ -19,35 +16,45 @@ self.addEventListener('fetch', (e) => {
   if (e.request.method !== 'GET') return;
   if (!e.request.url.startsWith('http')) return;
 
+  const url = e.request.url;
   const isBackendRequest =
     e.request.headers.has('authorization') ||
-    e.request.url.includes('/rest/v1/') ||
-    e.request.url.includes('/auth/v1/') ||
-    e.request.url.includes('/functions/v1/');
+    url.includes('/rest/v1/') ||
+    url.includes('/auth/v1/') ||
+    url.includes('/functions/v1/');
 
-  if (isBackendRequest) {
+  const isViteDevRequest =
+    url.includes('/node_modules/.vite/') ||
+    url.includes('/@vite/') ||
+    url.includes('/@fs/') ||
+    url.includes('/src/') ||
+    /[?&]v=/.test(url);
+
+  const isScriptOrStyleRequest =
+    e.request.destination === 'script' ||
+    e.request.destination === 'style' ||
+    e.request.destination === 'worker';
+
+  if (isBackendRequest || isViteDevRequest || isScriptOrStyleRequest) {
     e.respondWith(fetch(e.request));
     return;
   }
 
   if (e.request.mode === 'navigate') {
-    e.respondWith(
-      fetch(e.request)
-        .catch(() => caches.match('/index.html'))
-    );
+    e.respondWith(fetch(e.request).catch(() => caches.match('/index.html')));
     return;
   }
 
   e.respondWith(
-    caches.match(e.request)
-      .then(cached => cached || fetch(e.request)
-        .then(response => {
+    caches.match(e.request).then(
+      (cached) =>
+        cached ||
+        fetch(e.request).then((response) => {
           const clone = response.clone();
-          caches.open(CACHE_NAME)
-            .then(cache => cache.put(e.request, clone));
+          caches.open(CACHE_NAME).then((cache) => cache.put(e.request, clone));
           return response;
         })
-      )
+    )
   );
 });
 
