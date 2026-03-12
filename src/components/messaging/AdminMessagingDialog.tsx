@@ -10,6 +10,7 @@ import {
 } from '@/components/ui/dialog';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
+import { sendPushNotification } from '@/lib/pushHelper';
 import { useToast } from '@/hooks/use-toast';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
@@ -197,6 +198,14 @@ const AdminMessagingDialog = ({ open, onOpenChange, onMessagesRead }: AdminMessa
         user_id: selectedConversation.user_id, message: replyMessage.trim(), sender_type: 'admin', message_type: 'text',
       });
       if (error) throw error;
+
+      // Push notification to student
+      sendPushNotification({
+        title: '✉️ Nouveau message du professeur',
+        body: replyMessage.trim().substring(0, 100),
+        userId: selectedConversation.user_id,
+      });
+
       setReplyMessage(''); refetchMessages();
     } catch (err: any) { toast({ title: 'Erreur', description: (err?.message || 'Erreur inconnue') + (err?.code ? ` | code: ${err.code}` : ''), variant: 'destructive' }); }
     finally { setIsSending(false); }
@@ -217,6 +226,14 @@ const AdminMessagingDialog = ({ open, onOpenChange, onMessagesRead }: AdminMessa
         sender_type: 'admin', message_type: 'audio', audio_url: urlData.publicUrl,
       });
       if (error) throw error;
+
+      // Push notification to student
+      sendPushNotification({
+        title: '✉️ Message audio du professeur',
+        body: 'Vous avez reçu un message audio',
+        userId: selectedConversation.user_id,
+      });
+
       toast({ title: 'Audio envoyé ✓' }); refetchMessages();
     } catch (err: any) { toast({ title: 'Erreur', description: (err?.message || 'Erreur inconnue') + (err?.code ? ` | code: ${err.code}` : ''), variant: 'destructive' }); }
     finally { setIsSending(false); }
@@ -244,6 +261,13 @@ const AdminMessagingDialog = ({ open, onOpenChange, onMessagesRead }: AdminMessa
         message_type: 'text',
       });
       if (error) throw error;
+
+      // Push notification to student
+      sendPushNotification({
+        title: '✉️ Nouveau message du professeur',
+        body: newMsgText.trim().substring(0, 100),
+        userId: newMsgSelectedUser.user_id,
+      });
 
       // Close new message dialog and open the conversation
       setNewMsgOpen(false);

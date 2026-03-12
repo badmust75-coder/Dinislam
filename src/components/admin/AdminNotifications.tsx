@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { Bell, Send, Users, Moon, Clock } from 'lucide-react';
+import { Bell, Send, Users, Moon, Clock, TestTube } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -27,9 +28,38 @@ import {
 
 const AdminNotifications = () => {
   const { toast } = useToast();
+  const { user } = useAuth();
   const [notificationTitle, setNotificationTitle] = useState('');
   const [notificationBody, setNotificationBody] = useState('');
   const [notificationType, setNotificationType] = useState<'all' | 'prayer' | 'ramadan'>('all');
+  const [testSending, setTestSending] = useState(false);
+
+  const handleTestAdmin = async () => {
+    if (!user) return;
+    setTestSending(true);
+    try {
+      console.log('Admin user_id:', user.id);
+      const { data, error } = await supabase.functions.invoke('send-push-notification', {
+        body: {
+          userId: user.id,
+          title: '🔔 Test admin',
+          body: 'Notification test pour l\'admin',
+          tag: 'admin-test',
+        },
+      });
+      if (error) {
+        console.error('Erreur invoke:', error);
+        toast({ title: 'Erreur: ' + error.message, variant: 'destructive' });
+      } else {
+        console.log('Résultat envoi admin:', JSON.stringify(data));
+        toast({ title: `Test envoyé: ${data?.sent ?? 0}/${data?.total ?? 0}` });
+      }
+    } catch (e: any) {
+      toast({ title: 'Erreur', description: e.message, variant: 'destructive' });
+    } finally {
+      setTestSending(false);
+    }
+  };
 
   const { data: subscriptionStats } = useQuery({
     queryKey: ['admin-push-stats'],
@@ -129,11 +159,20 @@ const AdminNotifications = () => {
 
   return (
     <div className="space-y-6">
-      {/* Bouton Voir les abonnements - EN HAUT */}
-      <div className="p-4">
+      {/* Test admin button + Voir abonnements */}
+      <div className="p-4 space-y-3">
+        <Button
+          onClick={handleTestAdmin}
+          disabled={testSending}
+          className="w-full py-4 rounded-2xl font-bold text-lg"
+          variant="default"
+        >
+          <TestTube className="h-5 w-5 mr-2" />
+          {testSending ? 'Envoi en cours...' : '🔔 Tester notification (moi-même)'}
+        </Button>
         <button
           onClick={handleVoirAbonnements}
-          className="w-full py-4 rounded-2xl font-bold text-white text-lg mb-4"
+          className="w-full py-4 rounded-2xl font-bold text-white text-lg"
           style={{ backgroundColor: "#7c3aed" }}
         >
           🔍 Voir les abonnements ({abonnements.length})
