@@ -244,56 +244,16 @@ const Ramadan = () => {
   });
 
   const handleDayClick = (day: RamadanDay) => {
-    const isUnlocked = isDayUnlocked(day.day_number);
-    const hasContent = dayHasContent(day);
-    const waiting = isWaitingForTime(day.day_number);
-    const progress = getDayProgress(day.id);
-    const isCompleted = progress?.quiz_completed;
-
-    const ramadanStartClick = new Date('2026-03-01T00:00:00');
-    const currentRamadanDayClick = Math.floor(
-      (new Date().getTime() - ramadanStartClick.getTime()) / (1000 * 60 * 60 * 24)
-    ) + 1;
-
-    const isInWindow = day.day_number >= (currentRamadanDayClick - 3)
-                       && day.day_number <= currentRamadanDayClick;
-    const isAdminUnlocked = day.is_locked === false;
+    // Vérifier les exceptions personnelles
     const hasPersonalException = dayExceptions.some(e => e.day_id === day.id);
+    const effectivelyLocked = day.is_locked && !hasPersonalException;
 
-    if (!isInWindow && !isAdminUnlocked && !hasPersonalException && !isCompleted) {
-      if (day.day_number > currentRamadanDayClick) {
-        toast.error("Ce jour n'est pas encore disponible 🔒");
-      } else {
-        toast.error("Ce jour est verrouillé. Demande à ton professeur de le rouvrir 🔓");
-      }
-      return;
+    if (effectivelyLocked) {
+      return; // Le modal patience est géré par RamadanCalendarGrid
     }
 
-    // Completed days always open directly for review
-    if (isCompleted && hasContent) {
-      setOpenDay(day);
-      return;
-    }
-
-    if (day.day_number === 1 && !settings?.start_enabled) {
-      toast.error('Le calendrier n\'est pas encore ouvert. Patience !');
-      return;
-    }
-    if (!isUnlocked) {
-      toast.error('Complétez d\'abord le quiz du jour précédent');
-      return;
-    }
-    if (!hasContent) {
-      toast.info('Contenu pas encore disponible pour ce jour');
-      return;
-    }
-
-    // Day 1 opens directly, other days show confirmation
-    if (day.day_number > 1) {
-      setPendingDayToOpen(day);
-    } else {
-      setOpenDay(day);
-    }
+    // Si déverrouillé : ouvrir le contenu directement
+    setOpenDay(day);
   };
 
   const handleConfirmOpen = () => {
