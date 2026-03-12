@@ -582,7 +582,7 @@ const Admin = () => {
                   if (hasMultipleActions) {
                     return (
                       <SortableCard key={item.id} id={item.id}>
-                        <Popover>
+                         <Popover>
                           <PopoverTrigger asChild>
                             <div>
                               <AdminModuleCard
@@ -594,6 +594,7 @@ const Admin = () => {
                                 bgColor={card.bgColor}
                                 cardBgColor={card.cardBgColor}
                                 onClick={() => {}}
+                                actionButton={renderVisibilityToggle(card.key)}
                               />
                             </div>
                           </PopoverTrigger>
