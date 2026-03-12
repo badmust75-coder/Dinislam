@@ -64,7 +64,7 @@ const ICON_MAP: Record<string, LucideIcon> = {
   FileText, List, Video, BookOpen, Star, Heart, Bell, Calendar, Image, Music,
 };
 
-type ViewType = 'dashboard' | 'users' | 'students' | 'ramadan' | 'ramadan-manage' | 'ramadan-quiz-tracking' | 'nourania' | 'nourania-manage' | 'nourania-validations' | 'alphabet' | 'alphabet-manage' | 'invocations' | 'invocations-manage' | 'invocations-validations' | 'sourates' | 'sourates-manage' | 'sourates-validations' | 'registration-validations' | 'prayer' | 'messages' | 'dynamic-card-content' | 'homework' | 'attendance' | 'modules' | 'generic-module-manage' | 'grammaire-manage' | 'allah-names-manage' | 'vocabulaire-manage' | 'lecture-coran-manage' | 'darija-manage' | 'dictionnaire-manage' | 'dhikr-manage' | 'hadiths-manage' | 'histoires-prophetes-manage' | 'global-stats';
+type ViewType = 'dashboard' | 'users' | 'students' | 'ramadan' | 'ramadan-manage' | 'ramadan-quiz-tracking' | 'nourania' | 'nourania-manage' | 'nourania-validations' | 'alphabet' | 'alphabet-manage' | 'invocations' | 'invocations-manage' | 'invocations-validations' | 'sourates' | 'sourates-manage' | 'sourates-validations' | 'registration-validations' | 'prayer' | 'messages' | 'dynamic-card-content' | 'homework' | 'attendance' | 'modules' | 'generic-module-manage' | 'grammaire-manage' | 'allah-names-manage' | 'vocabulaire-manage' | 'lecture-coran-manage' | 'darija-manage' | 'dictionnaire-manage' | 'dhikr-manage' | 'hadiths-manage' | 'histoires-prophetes-manage' | 'global-stats' | 'notifications';
 
 interface GenericModuleManageState { moduleId: string; moduleTitle: string; }
 
