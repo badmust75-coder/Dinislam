@@ -69,7 +69,7 @@ const AdminNotifications = () => {
 
   const sendNotification = useMutation({
     mutationFn: async () => {
-      const { error: fnError } = await supabase.functions.invoke('send-push-notification', {
+      const { data, error: fnError } = await supabase.functions.invoke('send-push-notification', {
         body: {
           title: notificationTitle,
           body: notificationBody,
@@ -78,10 +78,15 @@ const AdminNotifications = () => {
         },
       });
 
-      if (fnError) throw fnError;
+      if (fnError) {
+        console.error('Erreur invoke:', fnError);
+        throw fnError;
+      }
+      console.log('Résultat:', JSON.stringify(data));
+      return data;
     },
-    onSuccess: () => {
-      toast({ title: 'Notifications envoyées avec succès' });
+    onSuccess: (data) => {
+      toast({ title: `Envoyé: ${data?.sent ?? 0}/${data?.total ?? 0}` });
       setNotificationTitle('');
       setNotificationBody('');
     },
@@ -89,7 +94,7 @@ const AdminNotifications = () => {
       console.error('Error sending notifications:', error);
       toast({ 
         title: 'Erreur lors de l\'envoi', 
-        description: 'Les notifications n\'ont pas pu être envoyées',
+        description: error?.message || 'Les notifications n\'ont pas pu être envoyées',
         variant: 'destructive' 
       });
     },
