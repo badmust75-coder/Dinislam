@@ -218,7 +218,7 @@ const AdminMessagingDialog = ({ open, onOpenChange, onMessagesRead }: AdminMessa
       });
       if (error) throw error;
       toast({ title: 'Audio envoyé ✓' }); refetchMessages();
-    } catch { toast({ title: 'Erreur', variant: 'destructive' }); }
+    } catch (err: any) { toast({ title: 'Erreur', description: (err?.message || 'Erreur inconnue') + (err?.code ? ` | code: ${err.code}` : ''), variant: 'destructive' }); }
     finally { setIsSending(false); }
   };
 
