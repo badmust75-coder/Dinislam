@@ -156,39 +156,36 @@ const MessagingDialog = ({ open, onOpenChange, onMessagesRead }: MessagingDialog
 
   const notifyAdminNewMessage = async (messageContent: string) => {
     try {
-      const { data: adminRole, error: adminRoleError } = await supabase
+      // Fetch ALL admin user_ids from user_roles
+      const { data: adminRoles } = await supabase
         .from('user_roles')
         .select('user_id')
-        .eq('role', 'admin')
-        .limit(1)
-        .maybeSingle();
+        .eq('role', 'admin');
 
-      if (adminRoleError) {
-        console.error('Error fetching admin role:', adminRoleError);
+      const adminIds = (adminRoles || []).map(r => r.user_id);
+
+      // Fallback: check profiles.is_admin if no roles found
+      if (adminIds.length === 0) {
+        const { data: adminProfiles } = await supabase
+          .from('profiles')
+          .select('user_id')
+          .eq('is_admin', true);
+        (adminProfiles || []).forEach(p => adminIds.push(p.user_id));
       }
 
-      const { data: adminProfile, error: adminProfileError } = await supabase
-        .from('profiles')
-        .select('user_id')
-        .eq('is_admin', true)
-        .limit(1)
-        .maybeSingle();
-
-      if (adminProfileError) {
-        console.error('Error fetching admin profile:', adminProfileError);
-      }
-
-      const adminId = adminRole?.user_id || adminProfile?.user_id;
-      if (!adminId) {
+      if (adminIds.length === 0) {
         console.warn('No admin user_id found for push notification');
         return;
       }
 
+      // Get sender name for notification
+      const senderName = user?.user_metadata?.full_name || 'Un élève';
+
       const { error: pushError } = await supabase.functions.invoke('send-push-notification', {
         body: {
-          userId: adminId,
-          title: 'Nouveau message',
-          body: messageContent.slice(0, 100),
+          userIds: adminIds,
+          title: '💬 Nouveau message',
+          body: `${senderName}: ${messageContent.slice(0, 80)}`,
           url: '/admin?section=messages',
         },
       });
