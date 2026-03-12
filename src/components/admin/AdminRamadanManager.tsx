@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { ArrowLeft, Upload, Video, HelpCircle, Trash2, Save, Loader2, Rocket, RotateCcw, Plus, GripVertical, AlertTriangle, FileText, Volume2, Image, Lock, Unlock, Check, Moon, Link } from 'lucide-react';
+import { ArrowLeft, Upload, Video, HelpCircle, Trash2, Save, Loader2, Rocket, RotateCcw, Plus, GripVertical, AlertTriangle, FileText, Volume2, Image, Lock, Unlock, Check, Moon, Link, Calendar } from 'lucide-react';
 import ContentUploadTabs from './ContentUploadTabs';
 import ContentItemCard from './ContentItemCard';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
