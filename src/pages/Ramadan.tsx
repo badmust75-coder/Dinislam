@@ -161,7 +161,7 @@ const Ramadan = () => {
   const currentRamadanDay = Math.floor((new Date().getTime() - ramadanStart.getTime()) / (1000 * 60 * 60 * 24)) + 1;
 
   const isFutureDay = (day: RamadanDay): boolean => {
-    if (day.is_unlocked) return false;
+    if (!day.is_locked) return false;
     if (dayExceptions.some(e => e.day_id === day.id)) return false;
     return day.day_number > currentRamadanDay;
   };
