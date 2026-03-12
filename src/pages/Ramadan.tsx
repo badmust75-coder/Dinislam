@@ -356,65 +356,15 @@ const Ramadan = () => {
           <p className="text-xs text-center text-muted-foreground">{progressPercentage}% du Ramadan complété</p>
         </div>
 
-        {/* Days Grid — 6 rows x 5 cols */}
-        <div className="grid grid-cols-5 gap-2">
-          {days.map((day) => {
-            const progress = getDayProgress(day.id);
-            const isCompleted = progress?.quiz_completed;
-            const hasProgress = progress && (progress.video_watched || progress.quiz_completed);
-            const isLocked = day.is_locked && !dayExceptions.some(e => e.day_id === day.id);
-
-            type DayState = 'completed' | 'pending' | 'available' | 'locked';
-            let state: DayState = 'locked';
-            if (isCompleted) {
-              state = 'completed';
-            } else if (!isLocked && hasProgress) {
-              state = 'pending';
-            } else if (!isLocked) {
-              state = 'available';
-            }
-
-            const stateStyles: Record<DayState, string> = {
-              completed: 'bg-[#22c55e] text-white shadow-md',
-              pending: 'bg-[#f97316] text-white shadow-md',
-              available: 'bg-[#fef9c3] text-[#9E9E9E] border border-[#E0E0E0]',
-              locked: 'bg-[#f3f4f6] text-[#9ca3af] border border-[#E0E0E0]',
-            };
-
-            return (
-              <button
-                key={day.id}
-                onClick={() => handleDayClick(day)}
-                className={cn(
-                  'min-h-[64px] min-w-[64px] aspect-square rounded-2xl flex flex-col items-center justify-center transition-all duration-200 relative',
-                  stateStyles[state],
-                  state !== 'locked' && 'hover:scale-105 cursor-pointer'
-                )}
-              >
-                {state === 'completed' ? (
-                  <Check className="h-7 w-7 text-white" strokeWidth={3} />
-                ) : state === 'pending' ? (
-                  <>
-                    <span className="absolute top-1 right-1.5 text-[9px] font-bold text-red-200">✕</span>
-                    <span className="text-lg leading-none">☽</span>
-                    <span className="text-[10px] font-bold mt-0.5">{day.day_number}</span>
-                  </>
-                ) : state === 'available' ? (
-                  <>
-                    <span className="text-lg leading-none text-[#9ca3af]">☽</span>
-                    <span className="text-[10px] font-bold mt-0.5 text-[#78716c]">{day.day_number}</span>
-                  </>
-                ) : (
-                  <>
-                    <span className="absolute top-1 right-1.5 text-[9px] text-[#f97316]">🔒</span>
-                    <Lock className="h-5 w-5 text-[#9ca3af]" />
-                    <span className="text-[10px] font-bold mt-0.5 text-[#9ca3af]">{day.day_number}</span>
-                  </>
-                )}
-              </button>
-            );
-          })}
-        </div>
+        {/* Days Grid */}
+        <RamadanCalendarGrid
+          days={days.map(d => ({
+            ...d,
+            is_locked: d.is_locked && !dayExceptions.some(e => e.day_id === d.id),
+          }))}
+          studentProgress={userProgress}
+          onDayClick={handleDayClick}
+        />
 
         {/* Legend */}
         <div className="flex flex-wrap gap-4 justify-center text-xs text-muted-foreground">
