@@ -560,9 +560,9 @@ const AdminRamadanManager = ({ onBack }: AdminRamadanManagerProps) => {
       toast({ title: 'Activité ajoutée avec succès' });
       setUploadingActivity(false);
     },
-    onError: (error) => {
+    onError: (error: any) => {
       console.error('Upload activity error:', error);
-      toast({ title: 'Erreur lors du téléversement', variant: 'destructive' });
+      toast({ title: `Erreur : ${error?.message || String(error)}`, variant: 'destructive' });
       setUploadingActivity(false);
     },
   });
