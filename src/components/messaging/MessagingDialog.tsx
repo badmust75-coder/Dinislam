@@ -361,6 +361,7 @@ const MessagingDialog = ({ open, onOpenChange, onMessagesRead }: MessagingDialog
         ))}
       </div>
     )}
+    </>
   );
 };
 
