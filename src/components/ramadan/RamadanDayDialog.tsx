@@ -720,26 +720,6 @@ const RamadanDayDialog = ({
                   <div className="relative w-full rounded-xl overflow-hidden" style={{ aspectRatio: '16/9' }}>
                     {currentVideo.video_url.includes('youtube.com/embed') ? (
                       <>
-                        {/* Overlay qui bloque le clic sur le titre en haut */}
-                        <div
-                          className="absolute top-0 left-0 right-0 z-20"
-                          style={{
-                            height: '50px',
-                            pointerEvents: 'all',
-                            cursor: 'default',
-                            background: 'transparent',
-                          }}
-                        />
-                        {/* Overlay qui bloque le clic sur le logo YouTube en bas à droite */}
-                        <div
-                          className="absolute bottom-0 right-0 z-20 bg-black"
-                          style={{
-                            width: '120px',
-                            height: '40px',
-                            pointerEvents: 'all',
-                            cursor: 'default',
-                          }}
-                        />
                         {(() => {
                           const url = currentVideo.video_url;
                           const videoId = url.includes('youtube.com/embed/')
@@ -748,7 +728,7 @@ const RamadanDayDialog = ({
                           return (
                             <iframe
                               key={currentVideo.id}
-                              src={`https://www.youtube.com/embed/${videoId}?rel=0&modestbranding=1&playsinline=1&iv_load_policy=3&disablekb=0&fs=1&autoplay=1`}
+                              src={`https://www.youtube.com/embed/${videoId}?rel=0&modestbranding=1&playsinline=1&iv_load_policy=3&fs=1&autoplay=1`}
                               className="absolute inset-0 w-full h-full"
                               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
                               allowFullScreen
@@ -756,6 +736,17 @@ const RamadanDayDialog = ({
                             />
                           );
                         })()}
+                        {/* Couche transparente qui couvre TOUT sauf les 40px de contrôles en bas */}
+                        <div
+                          className="absolute top-0 left-0 right-0 z-20"
+                          style={{
+                            height: 'calc(100% - 40px)',
+                            background: 'transparent',
+                            pointerEvents: 'all',
+                            cursor: 'pointer',
+                          }}
+                          onClick={(e) => e.preventDefault()}
+                        />
                       </>
                     ) : (
                       <video
