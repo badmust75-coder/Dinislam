@@ -87,7 +87,7 @@ const Ramadan = () => {
     queryFn: async () => {
       const { data, error } = await supabase.from('ramadan_days').select('*').order('day_number');
       if (error) throw error;
-      return (data as any[]).map(d => ({ ...d, is_unlocked: d.is_unlocked ?? false })) as RamadanDay[];
+      return (data as any[]).map(d => ({ ...d, is_locked: d.is_locked ?? true })) as RamadanDay[];
     },
   });
 
