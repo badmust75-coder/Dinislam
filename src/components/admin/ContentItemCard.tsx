@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Trash2, Check } from 'lucide-react';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { YoutubePlayer, extractYoutubeVideoId } from '@/utils/youtube';
 
 export type ContentType = 'fichier' | 'youtube' | 'audio';
 
@@ -109,15 +110,7 @@ const ContentItemCard = ({
           <div className="space-y-3">
             <p className="font-semibold text-sm">{title}</p>
             {contentType === 'youtube' && (
-              <div className="aspect-video rounded-xl overflow-hidden bg-black">
-                <iframe
-                  src={url}
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                  className="w-full h-full"
-                  style={{ border: 'none' }}
-                />
-              </div>
+              <YoutubePlayer videoId={extractYoutubeVideoId(url) || ''} />
             )}
             {contentType === 'audio' && (
               <audio src={url} controls className="w-full" />

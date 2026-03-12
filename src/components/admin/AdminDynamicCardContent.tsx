@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import { ArrowLeft, Upload, Trash2, FileText, Video, List, Loader2, ExternalLink } from 'lucide-react';
+import { YoutubePlayer, extractYoutubeVideoId } from '@/utils/youtube';
 import ConfirmDeleteDialog from '@/components/ui/confirm-delete-dialog';
 
 interface DashboardCard {
@@ -95,17 +96,13 @@ const AdminDynamicCardContent = ({ card, onBack }: Props) => {
         );
       case 'video':
         if (card.content) {
-          const isYoutube = card.content.includes('youtube') || card.content.includes('youtu.be');
+          const videoId = extractYoutubeVideoId(card.content);
+          if (videoId) return <YoutubePlayer videoId={videoId} />;
           const isVimeo = card.content.includes('vimeo');
-          if (isYoutube || isVimeo) {
-            let embedUrl = card.content;
-            if (isYoutube) {
-              const videoId = card.content.match(/(?:v=|youtu\.be\/)([^&\s]+)/)?.[1];
-              embedUrl = `https://www.youtube.com/embed/${videoId}`;
-            }
+          if (isVimeo) {
             return (
               <div className="aspect-video rounded-lg overflow-hidden">
-                <iframe src={embedUrl} className="w-full h-full" allowFullScreen />
+                <iframe src={card.content} className="w-full h-full" allowFullScreen />
               </div>
             );
           }

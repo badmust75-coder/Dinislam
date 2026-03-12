@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import AppLayout from '@/components/layout/AppLayout';
 import { Card, CardContent } from '@/components/ui/card';
 import { FileText, List, Video, BookOpen, Star, Heart, Bell, Calendar, Image, Music, File, ExternalLink } from 'lucide-react';
+import { YoutubePlayer, extractYoutubeVideoId } from '@/utils/youtube';
 import { Button } from '@/components/ui/button';
 import { LucideIcon } from 'lucide-react';
 
@@ -40,15 +41,8 @@ const Ressources = () => {
         );
       case 'video':
         if (card.content) {
-          const isYoutube = card.content.includes('youtube') || card.content.includes('youtu.be');
-          if (isYoutube) {
-            const videoId = card.content.match(/(?:v=|youtu\.be\/)([^&\s]+)/)?.[1];
-            return (
-              <div className="aspect-video rounded-lg overflow-hidden">
-                <iframe src={`https://www.youtube.com/embed/${videoId}`} className="w-full h-full" allowFullScreen />
-              </div>
-            );
-          }
+          const videoId = extractYoutubeVideoId(card.content);
+          if (videoId) return <YoutubePlayer videoId={videoId} />;
           return <video src={card.content} controls className="w-full rounded-lg" />;
         }
         return null;
