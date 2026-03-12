@@ -159,11 +159,20 @@ const AdminNotifications = () => {
 
   return (
     <div className="space-y-6">
-      {/* Bouton Voir les abonnements - EN HAUT */}
-      <div className="p-4">
+      {/* Test admin button + Voir abonnements */}
+      <div className="p-4 space-y-3">
+        <Button
+          onClick={handleTestAdmin}
+          disabled={testSending}
+          className="w-full py-4 rounded-2xl font-bold text-lg"
+          variant="default"
+        >
+          <TestTube className="h-5 w-5 mr-2" />
+          {testSending ? 'Envoi en cours...' : '🔔 Tester notification (moi-même)'}
+        </Button>
         <button
           onClick={handleVoirAbonnements}
-          className="w-full py-4 rounded-2xl font-bold text-white text-lg mb-4"
+          className="w-full py-4 rounded-2xl font-bold text-white text-lg"
           style={{ backgroundColor: "#7c3aed" }}
         >
           🔍 Voir les abonnements ({abonnements.length})
