@@ -277,7 +277,6 @@ const Admin = () => {
 
   // Static cards definition
   const STATIC_CARDS = useMemo(() => [
-    { key: 'users', title: 'Utilisateurs', icon: Users, value: stats?.users || 0, subtitle: 'inscrits', color: 'text-purple-600 dark:text-purple-400', bgColor: 'bg-purple-100 dark:bg-purple-900/30', cardBgColor: 'bg-purple-50/50 dark:bg-purple-950/20 border-purple-200 dark:border-purple-800', view: 'users' as ViewType },
     { key: 'messages', title: 'Messages', icon: Mail, value: 'Voir', subtitle: 'Messages des élèves', color: 'text-pink-600 dark:text-pink-400', bgColor: 'bg-pink-100 dark:bg-pink-900/30', cardBgColor: 'bg-pink-50/50 dark:bg-pink-950/20 border-pink-200 dark:border-pink-800', view: 'messages' as ViewType },
     { key: 'students', title: 'Élèves', icon: GraduationCap, value: stats?.users || 0, subtitle: 'suivis', color: 'text-amber-600 dark:text-amber-400', bgColor: 'bg-amber-100 dark:bg-amber-900/30', cardBgColor: 'bg-amber-50/50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800', view: 'students' as ViewType },
     { key: 'ramadan', title: 'Ramadan', icon: Moon, value: `${stats?.ramadan || 0} jours`, subtitle: 'Progression par élève', color: 'text-emerald-600 dark:text-emerald-400', bgColor: 'bg-emerald-100 dark:bg-emerald-900/30', cardBgColor: 'bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800', view: 'ramadan' as ViewType, manageView: 'ramadan-manage' as ViewType },
