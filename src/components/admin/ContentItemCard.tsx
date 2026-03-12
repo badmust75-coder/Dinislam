@@ -110,15 +110,7 @@ const ContentItemCard = ({
           <div className="space-y-3">
             <p className="font-semibold text-sm">{title}</p>
             {contentType === 'youtube' && (
-              <div className="aspect-video rounded-xl overflow-hidden bg-black">
-                <iframe
-                  src={url}
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                  className="w-full h-full"
-                  style={{ border: 'none' }}
-                />
-              </div>
+              <YoutubePlayer videoId={extractYoutubeVideoId(url) || ''} />
             )}
             {contentType === 'audio' && (
               <audio src={url} controls className="w-full" />

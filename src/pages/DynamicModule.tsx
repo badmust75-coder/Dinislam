@@ -49,31 +49,13 @@ const DynamicModule = () => {
 
   const isLoading = moduleLoading || contentsLoading;
 
-  const isYouTubeUrl = (url: string) => {
-    return url.includes('youtube.com') || url.includes('youtu.be');
-  };
-
-  const getYouTubeEmbedUrl = (url: string) => {
-    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
-    const match = url.match(regExp);
-    return match && match[2].length === 11 ? `https://www.youtube.com/embed/${match[2]}` : url;
-  };
-
   const renderContent = (item: any) => {
     const Icon = CONTENT_ICONS[item.content_type] || FileText;
 
     if (item.content_type === 'video') {
-      if (isYouTubeUrl(item.file_url)) {
-        return (
-          <div className="aspect-video rounded-xl overflow-hidden">
-            <iframe
-              src={getYouTubeEmbedUrl(item.file_url)}
-              className="w-full h-full"
-              allowFullScreen
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-            />
-          </div>
-        );
+      if (isYoutubeUrl(item.file_url)) {
+        const videoId = extractYoutubeVideoId(item.file_url);
+        if (videoId) return <YoutubePlayer videoId={videoId} />;
       }
       return (
         <video controls className="w-full rounded-xl">

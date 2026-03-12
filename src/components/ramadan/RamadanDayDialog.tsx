@@ -720,35 +720,7 @@ const RamadanDayDialog = ({
 
                   <div className="relative w-full rounded-xl overflow-hidden" style={{ aspectRatio: '16/9' }}>
                     {currentVideo.video_url.includes('youtube.com/embed') ? (
-                      <>
-                        {(() => {
-                          const url = currentVideo.video_url;
-                          const videoId = url.includes('youtube.com/embed/')
-                            ? url.split('youtube.com/embed/')[1]?.split(/[?&#]/)[0]
-                            : '';
-                          return (
-                            <iframe
-                              key={currentVideo.id}
-                              src={`https://www.youtube.com/embed/${videoId}?rel=0&modestbranding=1&playsinline=1&iv_load_policy=3&fs=1&autoplay=1`}
-                              className="absolute inset-0 w-full h-full"
-                              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
-                              allowFullScreen
-                              frameBorder="0"
-                              sandbox="allow-scripts allow-same-origin allow-presentation allow-popups-to-escape-sandbox"
-                            />
-                          );
-                        })()}
-                        {/* Vitre invisible qui bloque la zone titre en haut */}
-                        <div
-                          className="absolute top-0 left-0 right-0 z-20"
-                          style={{
-                            height: '55px',
-                            background: 'transparent',
-                            pointerEvents: 'all',
-                            cursor: 'default',
-                          }}
-                        />
-                      </>
+                      <YoutubePlayer videoId={extractYoutubeVideoId(currentVideo.video_url) || ''} />
                     ) : (
                       <video
                         ref={videoRef}
