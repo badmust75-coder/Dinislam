@@ -150,7 +150,69 @@ const AdminNotifications = () => {
         </Card>
       </div>
 
-      {/* Send Custom Notification */}
+      {/* Voir les abonnements - bouton proéminent */}
+      <button
+        onClick={() => {
+          setShowSubs(!showSubs);
+          if (!showSubs) refetchSubs();
+        }}
+        className="w-full py-3 rounded-xl font-bold text-white"
+        style={{ backgroundColor: '#6366f1' }}
+      >
+        {showSubs ? <EyeOff className="h-4 w-4 inline mr-2" /> : <Eye className="h-4 w-4 inline mr-2" />}
+        {showSubs ? 'Masquer les abonnements' : `Voir les abonnements (${subscriptionStats?.totalSubscriptions || 0})`}
+      </button>
+
+      {/* Subscriptions table inline */}
+      {showSubs && (
+        <Card>
+          <CardContent className="p-4">
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>User ID</TableHead>
+                    <TableHead>Actif</TableHead>
+                    <TableHead>p256dh</TableHead>
+                    <TableHead>auth_key</TableHead>
+                    <TableHead>Créé le</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {subscriptionsList?.map((sub, i) => (
+                    <TableRow key={i}>
+                      <TableCell className="font-mono text-xs">
+                        {sub.user_id?.substring(0, 6)}…
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={sub.is_active ? 'default' : 'destructive'}>
+                          {sub.is_active ? 'Oui' : 'Non'}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="font-mono text-xs">
+                        {sub.p256dh?.substring(0, 10)}…
+                      </TableCell>
+                      <TableCell className="font-mono text-xs">
+                        {sub.auth_key?.substring(0, 10)}…
+                      </TableCell>
+                      <TableCell className="text-xs">
+                        {sub.created_at ? new Date(sub.created_at).toLocaleDateString('fr-FR') : '—'}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                  {(!subscriptionsList || subscriptionsList.length === 0) && (
+                    <TableRow>
+                      <TableCell colSpan={5} className="text-center text-muted-foreground">
+                        Aucun abonnement trouvé
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
