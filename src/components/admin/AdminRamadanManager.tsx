@@ -486,8 +486,8 @@ const AdminRamadanManager = ({ onBack }: AdminRamadanManagerProps) => {
         toast({ title: 'Quiz enregistré avec succès' });
       }
     },
-    onError: () => {
-      toast({ title: 'Erreur lors de l\'enregistrement', variant: 'destructive' });
+    onError: (error: any) => {
+      toast({ title: `Erreur : ${error?.message || String(error)}`, variant: 'destructive' });
     },
   });
 
