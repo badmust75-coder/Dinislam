@@ -32,10 +32,10 @@ function DayCell({ day, state, onClick }: { day: any; state: DayState; onClick: 
   );
   // locked
   return (
-    <div className={`${base} w-16 h-16 bg-gray-100 cursor-not-allowed`}>
+    <div className={`${base} w-16 h-16 cursor-not-allowed`} style={{ backgroundColor: "#fef3c7" }}>
       <span className="absolute top-0.5 right-0.5 text-[10px]">🔒</span>
-      <Lock className="w-5 h-5 text-gray-400" />
-      <span className="text-gray-400 text-[11px] font-bold absolute bottom-1">{day.day_number}</span>
+      <Lock className="w-5 h-5" style={{ color: "#d97706" }} />
+      <span className="text-[11px] font-bold absolute bottom-1" style={{ color: "#92400e" }}>{day.day_number}</span>
     </div>
   );
 }
