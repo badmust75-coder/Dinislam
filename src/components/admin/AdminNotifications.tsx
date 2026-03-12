@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { Bell, Send, Users, Moon, Clock } from 'lucide-react';
+import { Bell, Send, Users, Moon, Clock, Eye, EyeOff } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -16,12 +16,21 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 
 const AdminNotifications = () => {
   const { toast } = useToast();
   const [notificationTitle, setNotificationTitle] = useState('');
   const [notificationBody, setNotificationBody] = useState('');
   const [notificationType, setNotificationType] = useState<'all' | 'prayer' | 'ramadan'>('all');
+  const [showSubs, setShowSubs] = useState(false);
 
   const { data: subscriptionStats } = useQuery({
     queryKey: ['admin-push-stats'],
