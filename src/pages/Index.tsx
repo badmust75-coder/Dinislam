@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Moon, BookOpen, Hand, BookMarked, Sparkles, MessageSquare, Star, Music, Video, FileText, Image, Heart, List, Scroll, Users, MoreVertical, EyeOff, Eye, Bell, X, Sun, MessageCircle, Book, Languages, Library, RefreshCw, Feather, BookHeart, NotebookPen, ClipboardList, ScrollText } from 'lucide-react';
@@ -54,6 +54,8 @@ const Index = () => {
   const [showWelcomeDialog, setShowWelcomeDialog] = useState(false);
   const [showNotifBanner, setShowNotifBanner] = useState(false);
   const [activatingNotif, setActivatingNotif] = useState(false);
+  const [draggedModuleId, setDraggedModuleId] = useState<string | null>(null);
+  const [dragOverModuleId, setDragOverModuleId] = useState<string | null>(null);
   const { data: progress } = useUserProgress();
 
   // Fetch modules from DB
@@ -67,6 +69,52 @@ const Index = () => {
       return data || [];
     }
   });
+
+  // Drag & drop reorder (admin only)
+  const handleModuleDragStart = useCallback((e: React.DragEvent, id: string) => {
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', id);
+    setDraggedModuleId(id);
+  }, []);
+
+  const handleModuleDragOver = useCallback((e: React.DragEvent, id: string) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    setDragOverModuleId(id);
+  }, []);
+
+  const handleModuleDragEnd = useCallback(() => {
+    setDraggedModuleId(null);
+    setDragOverModuleId(null);
+  }, []);
+
+  const handleModuleDrop = useCallback(async (e: React.DragEvent, targetId: string) => {
+    e.preventDefault();
+    setDragOverModuleId(null);
+    const sourceId = e.dataTransfer.getData('text/plain');
+    if (!sourceId || sourceId === targetId || !modules) return;
+
+    const oldIndex = modules.findIndex(m => m.id === sourceId);
+    const newIndex = modules.findIndex(m => m.id === targetId);
+    if (oldIndex === -1 || newIndex === -1) return;
+
+    const reordered = [...modules];
+    const [moved] = reordered.splice(oldIndex, 1);
+    reordered.splice(newIndex, 0, moved);
+
+    // Optimistic update
+    const updated = reordered.map((m, i) => ({ ...m, display_order: i }));
+    queryClient.setQueryData(['learning-modules', isAdmin], updated);
+    setDraggedModuleId(null);
+
+    // Persist to DB
+    await Promise.all(
+      updated.map((m, i) =>
+        supabase.from('learning_modules').update({ display_order: i }).eq('id', m.id)
+      )
+    );
+    toast.success('Ordre mis à jour');
+  }, [modules, isAdmin, queryClient]);
 
   const toggleActiveMutation = useMutation({
     mutationFn: async ({ id, is_active, title }: {id: string;is_active: boolean;title?: string;}) => {
@@ -269,8 +317,19 @@ const Index = () => {
               const Icon = ICON_MAP[mod.icon] || null;
               const slug = getModuleSlug(mod);
               const fallback = MODULE_EMOJI_FALLBACK[slug];
+              const isDragging = draggedModuleId === mod.id;
+              const isDragOver = dragOverModuleId === mod.id && draggedModuleId !== mod.id;
               return (
-                <div key={mod.id} className="flex flex-col items-center relative">
+                <div
+                  key={mod.id}
+                  className={cn("flex flex-col items-center relative", isDragOver && "ring-2 ring-primary ring-offset-2 rounded-2xl")}
+                  draggable={isAdmin}
+                  onDragStart={isAdmin ? (e) => handleModuleDragStart(e, mod.id) : undefined}
+                  onDragOver={isAdmin ? (e) => handleModuleDragOver(e, mod.id) : undefined}
+                  onDragEnd={isAdmin ? handleModuleDragEnd : undefined}
+                  onDrop={isAdmin ? (e) => handleModuleDrop(e, mod.id) : undefined}
+                  style={{ opacity: isDragging ? 0.4 : 1 }}
+                >
                   <button
                     onClick={() => handleModuleClick(mod)}
                     className={cn(
