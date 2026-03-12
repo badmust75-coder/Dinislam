@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import { ArrowLeft, Upload, Trash2, FileText, Video, List, Loader2, ExternalLink } from 'lucide-react';
+import { YoutubePlayer, extractYoutubeVideoId } from '@/utils/youtube';
 import ConfirmDeleteDialog from '@/components/ui/confirm-delete-dialog';
 
 interface DashboardCard {
