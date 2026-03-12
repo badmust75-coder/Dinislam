@@ -187,7 +187,7 @@ const MessagingDialog = ({ open, onOpenChange, onMessagesRead }: MessagingDialog
           }
         }
       );
-      console.log('PUSH_RESULT:', JSON.stringify(data), 'ERR:', error);
+      addLog('PUSH_RESULT: ' + JSON.stringify(data) + ' ERR: ' + JSON.stringify(error));
     } catch (err) {
       console.error('NOTIFY_ADMIN_CATCH:', err);
     }
