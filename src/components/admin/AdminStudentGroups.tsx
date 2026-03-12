@@ -245,7 +245,7 @@ const AdminStudentGroups = () => {
       toast.success('Groupe supprimé');
     } else {
       queryClient.invalidateQueries({ queryKey: ['student-groups'] });
-      toast.error('Erreur');
+      toast.error(`Erreur suppression: ${error.message} (${error.code})`);
     }
   };
 
