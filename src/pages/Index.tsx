@@ -330,6 +330,7 @@ const Index = () => {
                   onDrop={isAdmin ? (e) => handleModuleDrop(e, mod.id) : undefined}
                   style={{ opacity: isDragging ? 0.4 : 1 }}
                 >
+                  <button
                     onClick={() => handleModuleClick(mod)}
                     className={cn(
                       'relative bg-card rounded-2xl p-4 shadow-sm border border-border w-full',
