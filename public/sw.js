@@ -93,6 +93,6 @@ self.addEventListener('push', function(event) {
 self.addEventListener('notificationclick', function(event) {
   event.notification.close();
   event.waitUntil(
-    clients.openWindow('https://dini-ramadan-learn.lovable.app')
+    clients.openWindow(event.notification.data?.url || 'https://diniv2.lovable.app')
   );
 });
