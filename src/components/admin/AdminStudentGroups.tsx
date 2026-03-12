@@ -213,10 +213,9 @@ const AdminStudentGroups = () => {
           if (e2) throw e2;
         }
       } else {
-        const maxOrder = groups.length > 0 ? Math.max(...groups.map(g => g.display_order)) + 1 : 0;
         const { data: newGroup, error } = await (supabase as any)
           .from('student_groups')
-          .insert({ name: groupName, color: groupColor, display_order: maxOrder })
+          .insert({ name: groupName, color: groupColor })
           .select()
           .single();
         if (error) throw error;
