@@ -20,6 +20,7 @@ interface RegistrationUser {
 
 const AdminRegistrationValidations = ({ onBack }: { onBack: () => void }) => {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [registrations, setRegistrations] = useState<RegistrationUser[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [processingId, setProcessingId] = useState<string | null>(null);
