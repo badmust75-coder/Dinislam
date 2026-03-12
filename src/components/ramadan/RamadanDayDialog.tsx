@@ -733,19 +733,19 @@ const RamadanDayDialog = ({
                               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
                               allowFullScreen
                               frameBorder="0"
+                              sandbox="allow-scripts allow-same-origin allow-presentation allow-popups-to-escape-sandbox"
                             />
                           );
                         })()}
-                        {/* Couche transparente qui couvre TOUT sauf les 40px de contrôles en bas */}
+                        {/* Vitre invisible qui bloque la zone titre en haut */}
                         <div
                           className="absolute top-0 left-0 right-0 z-20"
                           style={{
-                            height: 'calc(100% - 40px)',
+                            height: '55px',
                             background: 'transparent',
                             pointerEvents: 'all',
-                            cursor: 'pointer',
+                            cursor: 'default',
                           }}
-                          onClick={(e) => e.preventDefault()}
                         />
                       </>
                     ) : (
