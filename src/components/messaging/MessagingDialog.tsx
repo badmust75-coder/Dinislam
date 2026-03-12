@@ -156,45 +156,36 @@ const MessagingDialog = ({ open, onOpenChange, onMessagesRead }: MessagingDialog
 
   const notifyAdminNewMessage = async (messageContent: string) => {
     try {
-      // Fetch ALL admin user_ids from user_roles
-      const { data: adminRoles } = await supabase
+      const senderName = user?.user_metadata?.full_name || 'Un élève';
+
+      const { data: adminRoles, error: errRoles } = await supabase
         .from('user_roles')
         .select('user_id')
         .eq('role', 'admin');
+      console.log('ADMIN_ROLES:', adminRoles, 'ERR:', errRoles);
 
-      const adminIds = (adminRoles || []).map(r => r.user_id);
-
-      // Fallback: check profiles.is_admin if no roles found
-      if (adminIds.length === 0) {
-        const { data: adminProfiles } = await supabase
-          .from('profiles')
-          .select('user_id')
-          .eq('is_admin', true);
-        (adminProfiles || []).forEach(p => adminIds.push(p.user_id));
-      }
-
-      if (adminIds.length === 0) {
-        console.warn('No admin user_id found for push notification');
+      if (errRoles || !adminRoles?.length) {
+        console.error('Aucun admin trouvé ou erreur:', errRoles);
         return;
       }
 
-      // Get sender name for notification
-      const senderName = user?.user_metadata?.full_name || 'Un élève';
+      const adminIds = adminRoles.map((r: any) => r.user_id);
+      console.log('SENDING_TO_ADMINS:', adminIds);
 
-      const { error: pushError } = await supabase.functions.invoke('send-push-notification', {
-        body: {
-          userIds: adminIds,
-          title: '💬 Nouveau message',
-          body: `${senderName}: ${messageContent.slice(0, 80)}`,
-          url: '/admin?section=messages',
-        },
-      });
-
-      if (pushError) {
-        console.error('Error sending admin push notification:', pushError);
-      }
+      const { data, error } = await supabase.functions.invoke(
+        'send-push-notification',
+        {
+          body: {
+            userIds: adminIds,
+            title: '💬 Nouveau message',
+            body: `${senderName}: ${messageContent.slice(0, 80)}`,
+            url: '/admin?section=messages'
+          }
+        }
+      );
+      console.log('PUSH_RESULT:', JSON.stringify(data), 'ERR:', error);
     } catch (err) {
-      console.error('Unexpected error while notifying admin:', err);
+      console.error('NOTIFY_ADMIN_CATCH:', err);
     }
   };
 
