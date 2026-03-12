@@ -30,13 +30,22 @@ const AdminStudents = () => {
   const { data: students, isLoading } = useQuery({
     queryKey: ['admin-students'],
     queryFn: async () => {
-      const { data: profiles, error } = await supabase
-        .from('profiles')
-        .select('user_id, email, full_name, created_at')
-        .order('full_name', { ascending: true });
+      const [{ data: profiles, error: profilesError }, { data: studentRoles, error: rolesError }] = await Promise.all([
+        supabase
+          .from('profiles')
+          .select('user_id, email, full_name, created_at')
+          .eq('is_approved', true),
+        supabase
+          .from('user_roles')
+          .select('user_id')
+          .eq('role', 'student'),
+      ]);
 
-      if (error) throw error;
-      return profiles || [];
+      if (profilesError) throw profilesError;
+      if (rolesError) throw rolesError;
+
+      const studentIds = new Set((studentRoles || []).map((role) => role.user_id));
+      return (profiles || []).filter((profile) => studentIds.has(profile.user_id));
     },
   });
 

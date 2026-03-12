@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
@@ -26,45 +26,59 @@ const AdminRegistrationValidations = ({ onBack }: { onBack: () => void }) => {
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<{ open: boolean; userId: string; name: string }>({ open: false, userId: '', name: '' });
 
+  const loadRegistrations = useCallback(async () => {
+    const { data, error } = await (supabase as any)
+      .from('profiles')
+      .select('*')
+      .eq('is_approved', false)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    setRegistrations(data || []);
+  }, []);
+
   useEffect(() => {
     const load = async () => {
-      const { data } = await (supabase as any)
-        .from('profiles')
-        .select('*')
-        .eq('is_approved', false)
-        .order('created_at', { ascending: false });
-      setRegistrations(data || []);
-      setIsLoading(false);
+      try {
+        await loadRegistrations();
+      } catch (err) {
+        console.error('Erreur chargement inscriptions:', err);
+      } finally {
+        setIsLoading(false);
+      }
     };
+
     load();
-  }, []);
+  }, [loadRegistrations]);
 
   const handleApprove = async (userId: string) => {
     setProcessingId(userId);
     try {
-      const { error: updateError, count } = await (supabase as any)
+      const { data: updatedProfiles, error: updateError } = await (supabase as any)
         .from('profiles')
-        .update({ is_approved: true })
+        .update({
+          is_approved: true,
+          updated_at: new Date().toISOString(),
+        })
         .eq('user_id', userId)
-        .select();
+        .select('user_id');
+
       if (updateError) throw updateError;
-      console.log('Profile update result, rows matched:', count);
+      if (!updatedProfiles?.length) {
+        throw new Error("Aucun profil mis à jour. Vérifiez les permissions d'accès.");
+      }
 
       const { error: roleError } = await (supabase as any)
         .from('user_roles')
-        .insert({ user_id: userId, role: 'student' });
-      if (roleError && !roleError.message?.includes('duplicate')) throw roleError;
+        .upsert({ user_id: userId, role: 'student' }, { onConflict: 'user_id,role' });
 
-      // Refetch from DB instead of local filter
-      const { data: refreshed } = await (supabase as any)
-        .from('profiles')
-        .select('*')
-        .eq('is_approved', false)
-        .order('created_at', { ascending: false });
-      setRegistrations(refreshed || []);
+      if (roleError) throw roleError;
+
+      await loadRegistrations();
 
       queryClient.invalidateQueries({ queryKey: ['admin-pending-total-count'] });
       queryClient.invalidateQueries({ queryKey: ['admin-students'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-students-details'] });
 
       toast({
         title: 'Inscription approuvée ✅',

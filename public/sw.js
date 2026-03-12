@@ -19,6 +19,17 @@ self.addEventListener('fetch', (e) => {
   if (e.request.method !== 'GET') return;
   if (!e.request.url.startsWith('http')) return;
 
+  const isBackendRequest =
+    e.request.headers.has('authorization') ||
+    e.request.url.includes('/rest/v1/') ||
+    e.request.url.includes('/auth/v1/') ||
+    e.request.url.includes('/functions/v1/');
+
+  if (isBackendRequest) {
+    e.respondWith(fetch(e.request));
+    return;
+  }
+
   if (e.request.mode === 'navigate') {
     e.respondWith(
       fetch(e.request)
