@@ -242,14 +242,7 @@ const MessagingDialog = ({ open, onOpenChange, onMessagesRead }: MessagingDialog
       });
       if (error) throw error;
 
-      // Send push notification to admin
-      const { data: profile } = await supabase.from('profiles').select('full_name').eq('user_id', user.id).maybeSingle();
-      const firstName = profile?.full_name?.split(' ')[0] || 'Un élève';
-      sendPushNotification({
-        title: `✉️ Message de ${firstName}`,
-        body: `${firstName} t'a envoyé un message audio`,
-        type: 'admin',
-      });
+      await notifyAdminNewMessage('🎵 Message audio');
 
       toast({ title: 'Audio envoyé ✓' });
       refetch();
