@@ -154,20 +154,27 @@ const MessagingDialog = ({ open, onOpenChange, onMessagesRead }: MessagingDialog
     }
   };
 
-  const notifyAdminNewMessage = async (messageContent: string) => {
+  const notifyAdminNewMessage = async (senderName: string) => {
     try {
-      const { data: adminRoles, error: errRoles } = await supabase
+      const { data: adminRoles } = await supabase
         .from('user_roles')
-        .select('user_id, role')
+        .select('user_id')
         .eq('role', 'admin');
 
-      return { 
-        adminRoles,
-        errRoles,
-        count: adminRoles?.length 
-      };
-    } catch (err: any) {
-      return { catch: err.message };
+      if (!adminRoles?.length) return;
+
+      const adminIds = adminRoles.map((r: any) => r.user_id);
+
+      await supabase.functions.invoke('send-push-notification', {
+        body: {
+          userIds: adminIds,
+          title: '💬 Nouveau message',
+          body: senderName + ' vous a envoyé un message',
+          url: '/admin?section=messages'
+        }
+      });
+    } catch (err) {
+      console.error('Push admin notify error:', err);
     }
   };
 
