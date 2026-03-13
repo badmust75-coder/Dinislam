@@ -72,6 +72,8 @@ function CarteDevoir({ devoir, onRendu }: { devoir: Devoir; onRendu: (id: string
       devoir.rendu
         ? devoir.statut === 'corrige'
           ? "border-green-400 bg-green-50 dark:bg-green-950/20 dark:border-green-700"
+          : devoir.statut === 'a_refaire'
+          ? "border-destructive bg-destructive/5"
           : "border-amber-400 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-700"
         : "border-destructive/40 bg-destructive/5"
     )}>
@@ -90,11 +92,15 @@ function CarteDevoir({ devoir, onRendu }: { devoir: Devoir; onRendu: (id: string
           devoir.rendu
             ? devoir.statut === 'corrige'
               ? "bg-green-500 text-white"
+              : devoir.statut === 'a_refaire'
+              ? "bg-destructive text-destructive-foreground"
               : "bg-amber-500 text-white"
             : "bg-destructive text-destructive-foreground"
         )}>
           {devoir.rendu
-            ? devoir.statut === 'corrige' ? '✅ Corrigé' : '⏳ Rendu'
+            ? devoir.statut === 'corrige' ? '✅ Corrigé' 
+              : devoir.statut === 'a_refaire' ? '🔄 À refaire'
+              : '⏳ Rendu'
             : '⏳ À faire'}
         </span>
       </div>
