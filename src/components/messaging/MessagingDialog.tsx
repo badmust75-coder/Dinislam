@@ -160,31 +160,16 @@ const MessagingDialog = ({ open, onOpenChange, onMessagesRead }: MessagingDialog
 
   const notifyAdminNewMessage = async (messageContent: string) => {
     try {
-      const senderName = user?.user_metadata?.full_name || 'Un élève';
-
-      const { data: adminRoles, error: errRoles } = await supabase
+      const { data: tousRoles } = await supabase
         .from('user_roles')
-        .select('user_id')
-        .eq('role', 'admin');
+        .select('user_id, role');
 
-      if (errRoles || !adminRoles?.length) {
-        return { erreur: 'Aucun admin trouvé', details: errRoles };
-      }
-
-      const adminIds = adminRoles.map((r: any) => r.user_id);
-
-      const { data, error } = await supabase.functions.invoke(
-        'send-push-notification',
-        {
-          body: {
-            userIds: adminIds,
-            title: '💬 Nouveau message',
-            body: `${senderName}: ${messageContent.slice(0, 80)}`,
-            url: '/admin?section=messages'
-          }
-        }
-      );
-      return { adminIds, data, error };
+      return { 
+        tousRoles: tousRoles?.map((r: any) => ({ 
+          user_id: r.user_id?.slice(0, 8), 
+          role: r.role 
+        }))
+      };
     } catch (err: any) {
       return { catch: err.message };
     }
