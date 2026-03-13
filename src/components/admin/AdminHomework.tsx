@@ -330,7 +330,7 @@ const AdminHomework = ({ onBack }: AdminHomeworkProps) => {
               {r.statut === 'rendu' && (
                 <Button
                   size="sm"
-                  onClick={() => markCorrige.mutate(r.id)}
+                  onClick={() => markCorrige.mutate({ renduId: r.id, studentId: r.student_id, devoirTitre: r.devoir_titre })}
                   disabled={markCorrige.isPending}
                   className="gap-1"
                 >
