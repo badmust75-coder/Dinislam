@@ -50,10 +50,6 @@ const MessagingDialog = ({ open, onOpenChange, onMessagesRead }: MessagingDialog
   const [message, setMessage] = useState('');
   const [isRecording, setIsRecording] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [debugLogs, setDebugLogs] = useState<string[]>([]);
-  const addLog = (msg: string) => {
-    setDebugLogs(prev => [...prev, new Date().toLocaleTimeString() + ' — ' + msg]);
-  };
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const recognitionRef = useRef<any>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
