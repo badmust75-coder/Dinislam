@@ -50,10 +50,6 @@ const MessagingDialog = ({ open, onOpenChange, onMessagesRead }: MessagingDialog
   const [message, setMessage] = useState('');
   const [isRecording, setIsRecording] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [debugLogs, setDebugLogs] = useState<string[]>([]);
-  const addLog = (msg: string) => {
-    setDebugLogs(prev => [...prev, new Date().toLocaleTimeString() + ' — ' + msg]);
-  };
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const recognitionRef = useRef<any>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -158,20 +154,27 @@ const MessagingDialog = ({ open, onOpenChange, onMessagesRead }: MessagingDialog
     }
   };
 
-  const notifyAdminNewMessage = async (messageContent: string) => {
+  const notifyAdminNewMessage = async (senderName: string) => {
     try {
-      const { data: adminRoles, error: errRoles } = await supabase
+      const { data: adminRoles } = await supabase
         .from('user_roles')
-        .select('user_id, role')
+        .select('user_id')
         .eq('role', 'admin');
 
-      return { 
-        adminRoles,
-        errRoles,
-        count: adminRoles?.length 
-      };
-    } catch (err: any) {
-      return { catch: err.message };
+      if (!adminRoles?.length) return;
+
+      const adminIds = adminRoles.map((r: any) => r.user_id);
+
+      await supabase.functions.invoke('send-push-notification', {
+        body: {
+          userIds: adminIds,
+          title: '💬 Nouveau message',
+          body: senderName + ' vous a envoyé un message',
+          url: '/admin?section=messages'
+        }
+      });
+    } catch (err) {
+      console.error('Push admin notify error:', err);
     }
   };
 
@@ -184,9 +187,10 @@ const MessagingDialog = ({ open, onOpenChange, onMessagesRead }: MessagingDialog
       });
       if (error) throw error;
       
-      const pushResult = await notifyAdminNewMessage(message.trim());
+      const profile = await supabase.from('profiles').select('full_name').eq('user_id', user.id).maybeSingle();
+      await notifyAdminNewMessage(profile.data?.full_name || 'Un élève');
       
-      toast({ title: 'Message envoyé', description: 'Debug push: ' + JSON.stringify(pushResult) });
+      toast({ title: 'Message envoyé ✓' });
       setMessage('');
       refetch();
     } catch (error: any) {
@@ -216,7 +220,8 @@ const MessagingDialog = ({ open, onOpenChange, onMessagesRead }: MessagingDialog
       });
       if (error) throw error;
 
-      await notifyAdminNewMessage('🎵 Message audio');
+      const profile = await supabase.from('profiles').select('full_name').eq('user_id', user.id).maybeSingle();
+      await notifyAdminNewMessage(profile.data?.full_name || 'Un élève');
 
       toast({ title: 'Audio envoyé ✓' });
       refetch();
@@ -337,13 +342,6 @@ const MessagingDialog = ({ open, onOpenChange, onMessagesRead }: MessagingDialog
         </div>
       </DialogContent>
     </Dialog>
-    {debugLogs.length > 0 && (
-      <div className="fixed bottom-20 left-2 right-2 bg-black text-green-400 text-xs p-3 rounded-xl z-50 max-h-40 overflow-y-auto">
-        {debugLogs.map((log, i) => (
-          <div key={i}>{log}</div>
-        ))}
-      </div>
-    )}
     </>
   );
 };
