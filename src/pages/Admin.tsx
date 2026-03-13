@@ -239,8 +239,8 @@ const Admin = () => {
         const { count } = await supabase.from('nourania_validation_requests').select('*', { count: 'exact', head: true }).eq('status', 'pending');
         setPendingNourania(count || 0);
       })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'invocation_validation_requests' }, async () => {
-        const { count } = await supabase.from('invocation_validation_requests').select('*', { count: 'exact', head: true }).eq('status', 'pending');
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'devoirs_rendus' }, async () => {
+        const { count } = await supabase.from('devoirs_rendus').select('*', { count: 'exact', head: true }).eq('statut', 'rendu');
         setPendingInvocations(count || 0);
       })
       .subscribe();
