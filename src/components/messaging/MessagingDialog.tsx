@@ -220,7 +220,8 @@ const MessagingDialog = ({ open, onOpenChange, onMessagesRead }: MessagingDialog
       });
       if (error) throw error;
 
-      await notifyAdminNewMessage('🎵 Message audio');
+      const profile = await supabase.from('profiles').select('full_name').eq('user_id', user.id).maybeSingle();
+      await notifyAdminNewMessage(profile.data?.full_name || 'Un élève');
 
       toast({ title: 'Audio envoyé ✓' });
       refetch();
