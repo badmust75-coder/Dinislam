@@ -351,19 +351,39 @@ const AdminHomework = ({ onBack }: AdminHomeworkProps) => {
         <h3 className="font-semibold text-foreground mb-2">
           Rendus à corriger ({rendus.filter((r: any) => r.statut === 'rendu').length})
         </h3>
-        {devoirsParEleve
-          .filter(({ rendusEleve }) => rendusEleve.length > 0)
-          .map(({ eleve, rendusEleve, aRefaire, enAttente, aJour }) => {
-            const ouvert = elevesRendusOuverts[eleve.user_id];
-            const pendingCount = rendusEleve.filter(r => r.statut === 'rendu').length;
+        {(() => {
+          // Group rendus by student_id directly from rendus data
+          const rendusParEleve: Record<string, { name: string; items: any[] }> = {};
+          rendus.forEach((r: any) => {
+            if (!rendusParEleve[r.student_id]) {
+              rendusParEleve[r.student_id] = { name: r.student_name || 'Inconnu', items: [] };
+            }
+            rendusParEleve[r.student_id].items.push(r);
+          });
+
+          if (Object.keys(rendusParEleve).length === 0) {
+            return <p className="text-muted-foreground text-sm text-center py-4">Aucun rendu</p>;
+          }
+
+          return Object.entries(rendusParEleve).map(([studentId, { name, items }]) => {
+            const ouvert = elevesRendusOuverts[studentId];
+            const pendingCount = items.filter(r => r.statut === 'rendu').length;
+            const hasARefaire = items.some(r => r.statut === 'a_refaire');
+            const hasEnAttente = items.some(r => r.statut === 'rendu');
+            const colorClass = hasARefaire
+              ? 'border-destructive bg-destructive/5'
+              : hasEnAttente
+              ? 'border-orange-400 bg-orange-50 dark:bg-orange-950/20'
+              : 'border-green-400 bg-green-50 dark:bg-green-950/20';
+
             return (
-              <Card key={eleve.user_id} className={`mb-2 overflow-hidden border-2 ${couleurCarte({ aRefaire, enAttente, aJour })}`}>
+              <Card key={studentId} className={`mb-2 overflow-hidden border-2 ${colorClass}`}>
                 <button
-                  onClick={() => toggleEleveRendu(eleve.user_id)}
+                  onClick={() => toggleEleveRendu(studentId)}
                   className="w-full flex items-center justify-between p-3 hover:bg-muted/50 transition-colors"
                 >
                   <span className="font-semibold text-foreground text-sm flex items-center gap-2">
-                    👤 {eleve.full_name} ({rendusEleve.length} rendu{rendusEleve.length > 1 ? 's' : ''})
+                    👤 {name} ({items.length} rendu{items.length > 1 ? 's' : ''})
                     {pendingCount > 0 && (
                       <span className="bg-destructive text-destructive-foreground text-xs font-bold w-5 h-5 rounded-full flex items-center justify-center">
                         {pendingCount}
@@ -374,7 +394,7 @@ const AdminHomework = ({ onBack }: AdminHomeworkProps) => {
                 </button>
                 {ouvert && (
                   <div className="px-3 pb-3 space-y-2">
-                    {rendusEleve.map((r: any) => (
+                    {items.map((r: any) => (
                       <div key={r.id} className={`rounded-xl p-3 ${
                         r.statut === 'corrige'
                           ? 'bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800'
@@ -420,7 +440,8 @@ const AdminHomework = ({ onBack }: AdminHomeworkProps) => {
                 )}
               </Card>
             );
-          })}
+          });
+        })()}
       </div>
 
       {/* Modal "À refaire" */}
