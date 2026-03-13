@@ -207,6 +207,7 @@ serve(async (req) => {
 
   try {
     const body = await req.json();
+    console.log('BODY_RECU:', JSON.stringify(body));
     const { userId, userIds, sendToAll, excludeUserId, title, body: notifBody, tag, data, type } = body;
 
     // Health check
@@ -238,30 +239,42 @@ serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Build query based on target
-    let query = supabase.from('push_subscriptions').select('*');
+    // Build target user IDs
+    let targetIds: string[] = [];
 
-    if (userId) {
-      query = query.eq('user_id', userId);
+    if (sendToAll) {
+      const { data: allSubs } = await supabase.from('push_subscriptions').select('user_id').eq('is_active', true);
+      targetIds = [...new Set((allSubs || []).map((r: any) => r.user_id))];
     } else if (userIds && Array.isArray(userIds)) {
-      query = query.in('user_id', userIds);
+      targetIds = userIds;
+    } else if (userId) {
+      targetIds = [userId];
     } else if (type === 'admin') {
       const { data: adminRoles } = await supabase.from('user_roles').select('user_id').eq('role', 'admin');
-      const adminIds = (adminRoles || []).map((r: any) => r.user_id);
-      if (adminIds.length === 0) {
-        return new Response(
-          JSON.stringify({ success: true, sent: 0, total: 0 }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-      query = query.in('user_id', adminIds);
+      targetIds = (adminRoles || []).map((r: any) => r.user_id);
+    }
+
+    console.log('TARGET_IDS:', JSON.stringify(targetIds));
+
+    if (targetIds.length === 0) {
+      return new Response(
+        JSON.stringify({ success: true, sent: 0, total: 0, reason: 'no target ids' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     if (excludeUserId) {
-      query = query.neq('user_id', excludeUserId);
+      targetIds = targetIds.filter(id => id !== excludeUserId);
     }
 
-    const { data: subscriptions, error } = await query;
+    // Query subscriptions filtered by is_active
+    const { data: subscriptions, error } = await supabase
+      .from('push_subscriptions')
+      .select('*')
+      .in('user_id', targetIds)
+      .eq('is_active', true);
+
+    console.log('SUBSCRIPTIONS_FOUND:', subscriptions?.length, 'ERR:', JSON.stringify(error));
 
     console.log('QUERY_RESULT', JSON.stringify({
       error: error?.message,
