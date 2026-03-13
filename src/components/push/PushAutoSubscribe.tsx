@@ -10,6 +10,7 @@ const PushAutoSubscribe = () => {
   const { user } = useAuth();
   const { isSupported, isSubscribed, subscribe, isLoading } = useWebPush();
   const [needsSubscription, setNeedsSubscription] = useState(false);
+  const [forceBanner, setForceBanner] = useState(false);
   const [isIOS, setIsIOS] = useState(false);
   const [subscribing, setSubscribing] = useState(false);
   const autoTriedRef = useRef(false);
@@ -27,7 +28,6 @@ const PushAutoSubscribe = () => {
 
     const checkBrowserAndDB = async () => {
       try {
-        // 1. Check browser-side: permission + active pushManager subscription
         const permissionGranted = 'Notification' in window && Notification.permission === 'granted';
         let hasBrowserSub = false;
 
@@ -39,7 +39,6 @@ const PushAutoSubscribe = () => {
           }
         }
 
-        // 2. Check DB-side
         const { data: dbRow } = await supabase
           .from('push_subscriptions')
           .select('id')
@@ -48,7 +47,6 @@ const PushAutoSubscribe = () => {
 
         console.log('[PushAuto] permission:', Notification.permission, 'browserSub:', hasBrowserSub, 'dbRow:', !!dbRow);
 
-        // 3. If browser has no active sub but DB has stale row → clean it
         if (!hasBrowserSub && dbRow) {
           console.log('[PushAuto] Cleaning stale DB subscription after reinstall');
           await supabase
@@ -57,7 +55,6 @@ const PushAutoSubscribe = () => {
             .eq('user_id', user.id);
         }
 
-        // 4. Need subscription if permission not granted OR no browser sub
         if (!permissionGranted || !hasBrowserSub) {
           setNeedsSubscription(true);
         }
@@ -70,7 +67,36 @@ const PushAutoSubscribe = () => {
     checkBrowserAndDB();
   }, [user, isSupported, isLoading]);
 
-  // Auto-subscribe on non-iOS if permission already granted (no gesture needed)
+  // Poll notification_invitations for admin-triggered banner
+  useEffect(() => {
+    if (!user) return;
+
+    const checkInvitation = async () => {
+      try {
+        const { data } = await (supabase as any)
+          .from('notification_invitations')
+          .select('show_banner')
+          .eq('user_id', user.id)
+          .maybeSingle();
+
+        if (data?.show_banner) {
+          setForceBanner(true);
+          await (supabase as any)
+            .from('notification_invitations')
+            .update({ show_banner: false })
+            .eq('user_id', user.id);
+        }
+      } catch (err) {
+        // ignore
+      }
+    };
+
+    checkInvitation();
+    const interval = setInterval(checkInvitation, 10000);
+    return () => clearInterval(interval);
+  }, [user]);
+
+  // Auto-subscribe on non-iOS if permission already granted
   useEffect(() => {
     if (!needsSubscription || isIOS || autoTriedRef.current || isSubscribed) return;
     if ('Notification' in window && Notification.permission === 'granted') {
@@ -78,20 +104,24 @@ const PushAutoSubscribe = () => {
       subscribe().then((ok) => {
         if (ok) {
           setNeedsSubscription(false);
+          setForceBanner(false);
           console.log('[PushAuto] Auto-subscribed successfully');
         }
       });
     }
   }, [needsSubscription, isIOS, isSubscribed, subscribe]);
 
-  // Hide if already subscribed or not needed
-  if (!needsSubscription || isSubscribed || !isSupported) return null;
+  // Hide if already subscribed AND no forced banner, or not supported
+  if (!isSupported) return null;
+  if (isSubscribed && !forceBanner) return null;
+  if (!needsSubscription && !forceBanner) return null;
 
   const handleTap = async () => {
     setSubscribing(true);
     const ok = await subscribe();
     if (ok) {
       setNeedsSubscription(false);
+      setForceBanner(false);
       toast.success('✅ Notifications activées !');
     }
     setSubscribing(false);

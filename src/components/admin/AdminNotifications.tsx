@@ -64,26 +64,24 @@ const AdminNotifications = () => {
   };
 
   const handleRenvoyerInvitation = async (userId?: string) => {
-    const cibles = userId ? [userId] : elevesStatut.map(e => e.id);
+    const cibles = userId ? [userId] : elevesStatut.filter(e => !e.notifActive).map(e => e.id);
     if (!cibles.length) {
       toast({ title: 'Aucun élève à relancer' });
       return;
     }
 
     try {
-      const messageText = "🔔 Pensez à activer les notifications ! Allez dans l'application et appuyez sur le bouton 'Activer les notifications' pour ne rien manquer.";
+      for (const id of cibles) {
+        await (supabase as any)
+          .from('notification_invitations')
+          .upsert({ 
+            user_id: id, 
+            show_banner: true,
+            sent_at: new Date().toISOString()
+          }, { onConflict: 'user_id' });
+      }
 
-      const payload = cibles.map((targetId) => ({
-        user_id: targetId,
-        message: messageText,
-        sender_type: 'admin',
-        message_type: 'text',
-      }));
-
-      const { error } = await supabase.from('user_messages').insert(payload);
-      if (error) throw error;
-
-      toast({ title: `📨 Message envoyé à ${cibles.length} élève(s) via la messagerie` });
+      toast({ title: `✅ Bannière renvoyée à ${cibles.length} élève(s)` });
     } catch (e: any) {
       toast({ title: 'Erreur', description: e.message, variant: 'destructive' });
     }

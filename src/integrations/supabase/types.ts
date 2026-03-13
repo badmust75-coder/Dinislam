@@ -921,6 +921,27 @@ export type Database = {
         }
         Relationships: []
       }
+      notification_invitations: {
+        Row: {
+          id: string
+          sent_at: string | null
+          show_banner: boolean | null
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          sent_at?: string | null
+          show_banner?: boolean | null
+          user_id: string
+        }
+        Update: {
+          id?: string
+          sent_at?: string | null
+          show_banner?: boolean | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       notification_preferences: {
         Row: {
           asr_reminder: boolean | null
