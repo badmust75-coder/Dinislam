@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Mic, Square, Send, CheckCircle, BookOpen, ExternalLink } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -13,9 +13,9 @@ type Devoir = {
   description?: string;
   lien_lecon?: string;
   date_limite?: string;
-  rendu?: boolean;
-  statut?: string; // 'rendu' | 'corrige' | 'a_refaire'
-  commentaire_admin?: string;
+  rendu: boolean;
+  statut_rendu: string | null;
+  commentaire_admin: string | null;
 };
 
 function CarteDevoir({ devoir, onRendu }: { devoir: Devoir; onRendu: (id: string, audioBlob: Blob) => void }) {
@@ -66,15 +66,20 @@ function CarteDevoir({ devoir, onRendu }: { devoir: Devoir; onRendu: (id: string
     autre: '✏️'
   };
 
+  const isARefaire = devoir.statut_rendu === 'a_refaire';
+  const isCorrige = devoir.statut_rendu === 'corrige';
+  const isRendu = devoir.rendu && devoir.statut_rendu === 'rendu';
+  const isAFaire = !devoir.rendu;
+
   return (
     <div className={cn(
       "rounded-2xl p-4 mb-3 shadow-sm border-2",
-      devoir.rendu
-        ? devoir.statut === 'corrige'
-          ? "border-green-400 bg-green-50 dark:bg-green-950/20 dark:border-green-700"
-          : devoir.statut === 'a_refaire'
-          ? "border-destructive bg-destructive/5"
-          : "border-amber-400 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-700"
+      isCorrige
+        ? "border-green-400 bg-green-50 dark:bg-green-950/20 dark:border-green-700"
+        : isARefaire
+        ? "border-destructive bg-destructive/5"
+        : isRendu
+        ? "border-amber-400 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-700"
         : "border-destructive/40 bg-destructive/5"
     )}>
       <div className="flex items-start justify-between mb-2">
@@ -89,18 +94,17 @@ function CarteDevoir({ devoir, onRendu }: { devoir: Devoir; onRendu: (id: string
         </div>
         <span className={cn(
           "text-xs font-bold px-2 py-1 rounded-full",
-          devoir.rendu
-            ? devoir.statut === 'corrige'
-              ? "bg-green-500 text-white"
-              : devoir.statut === 'a_refaire'
-              ? "bg-destructive text-destructive-foreground"
-              : "bg-amber-500 text-white"
+          isCorrige
+            ? "bg-green-500 text-white"
+            : isARefaire
+            ? "bg-destructive text-destructive-foreground"
+            : isRendu
+            ? "bg-amber-500 text-white"
             : "bg-destructive text-destructive-foreground"
         )}>
-          {devoir.rendu
-            ? devoir.statut === 'corrige' ? '✅ Corrigé' 
-              : devoir.statut === 'a_refaire' ? '🔄 À refaire'
-              : '⏳ Rendu'
+          {isCorrige ? '✅ Corrigé'
+            : isARefaire ? '🔄 À refaire'
+            : isRendu ? '⏳ Rendu'
             : '⏳ À faire'}
         </span>
       </div>
@@ -111,7 +115,22 @@ function CarteDevoir({ devoir, onRendu }: { devoir: Devoir; onRendu: (id: string
         </p>
       )}
 
-      {(!devoir.rendu || devoir.statut === 'a_refaire') && (
+      {/* À refaire: show feedback + re-record */}
+      {isARefaire && (
+        <div className="mb-3">
+          <div className="bg-destructive/10 rounded-xl p-3 mb-2">
+            <p className="text-destructive text-sm font-semibold">🔄 À refaire</p>
+            {devoir.commentaire_admin && (
+              <p className="text-destructive text-xs mt-1">
+                💬 {devoir.commentaire_admin}
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Show record buttons for: not submitted OR à refaire */}
+      {(isAFaire || isARefaire) && (
         <div className="flex flex-col gap-2">
           {devoir.lien_lecon && (
             <a
@@ -133,7 +152,7 @@ function CarteDevoir({ devoir, onRendu }: { devoir: Devoir; onRendu: (id: string
                 className="flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-sm font-semibold bg-orange-500 text-white hover:bg-orange-600 transition-colors"
               >
                 <Mic className="w-4 h-4" />
-                Enregistrer
+                {isARefaire ? 'Réenregistrer' : 'Enregistrer'}
               </button>
             )}
 
@@ -164,27 +183,23 @@ function CarteDevoir({ devoir, onRendu }: { devoir: Devoir; onRendu: (id: string
         </div>
       )}
 
-      {devoir.rendu && devoir.statut !== 'a_refaire' && (
+      {/* Rendu en attente */}
+      {isRendu && (
         <div className="flex items-center gap-2 mt-1">
-          {devoir.statut === 'corrige' ? (
-            <>
-              <CheckCircle className="w-5 h-5 text-green-500" />
-              <p className="text-sm text-green-600 dark:text-green-400 font-semibold">
-                ✅ Devoir corrigé par l'enseignante
-              </p>
-            </>
-          ) : (
-            <p className="text-sm text-amber-600 dark:text-amber-400 font-semibold">
-              ⏳ Devoir rendu — en attente de correction
-            </p>
-          )}
+          <p className="text-sm text-amber-600 dark:text-amber-400 font-semibold">
+            ⏳ Devoir rendu — en attente de correction
+          </p>
         </div>
       )}
 
-      {devoir.statut === 'a_refaire' && devoir.commentaire_admin && (
-        <p className="text-xs text-destructive bg-destructive/5 rounded-lg p-2 mt-2">
-          💬 {devoir.commentaire_admin}
-        </p>
+      {/* Corrigé */}
+      {isCorrige && (
+        <div className="flex items-center gap-2 mt-1">
+          <CheckCircle className="w-5 h-5 text-green-500" />
+          <p className="text-sm text-green-600 dark:text-green-400 font-semibold">
+            ✅ Devoir corrigé par l'enseignante
+          </p>
+        </div>
       )}
     </div>
   );
@@ -197,65 +212,57 @@ export default function BlocDevoirsEleve() {
   const [loading, setLoading] = useState(true);
   const [ouvert, setOuvert] = useState(false);
 
-  useEffect(() => {
+  const chargerDevoirs = useCallback(async () => {
     if (!user) return;
 
-    const charger = async () => {
-      const { data: groupData } = await supabase
-        .from('student_group_members')
-        .select('group_id')
-        .eq('user_id', user.id);
+    const { data: groupData } = await supabase
+      .from('student_group_members')
+      .select('group_id')
+      .eq('user_id', user.id);
 
-      const gIds = groupData?.map(g => g.group_id) || [];
+    const gIds = groupData?.map(g => g.group_id) || [];
 
-      let orFilter = `assigned_to.eq.all,student_id.eq.${user.id}`;
-      if (gIds.length > 0) {
-        orFilter += `,group_id.in.(${gIds.join(',')})`;
-      }
+    let orFilter = `assigned_to.eq.all,student_id.eq.${user.id}`;
+    if (gIds.length > 0) {
+      orFilter += `,group_id.in.(${gIds.join(',')})`;
+    }
 
-      const { data } = await supabase
-        .from('devoirs')
-        .select('*')
-        .or(orFilter)
-        .order('created_at', { ascending: false });
+    const { data } = await supabase
+      .from('devoirs')
+      .select('*')
+      .or(orFilter)
+      .order('created_at', { ascending: false });
 
-      // Check which are already submitted + get statut
-      const { data: rendus } = await supabase
-        .from('devoirs_rendus')
-        .select('devoir_id, statut, commentaire_admin')
-        .eq('student_id', user.id);
+    // Fetch rendus for this student
+    const { data: rendus } = await supabase
+      .from('devoirs_rendus')
+      .select('devoir_id, statut, commentaire_admin')
+      .eq('student_id', user.id);
 
-      const rendusMap = new Map<string, { statut: string; commentaire_admin?: string }>();
-      (rendus || []).forEach(r => {
-        if (r.devoir_id) rendusMap.set(r.devoir_id, { 
-          statut: r.statut || 'rendu',
-          commentaire_admin: r.commentaire_admin || undefined,
-        });
-      });
+    const enrichis: Devoir[] = (data || []).map(d => {
+      const rendu = rendus?.find(r => r.devoir_id === d.id);
+      return {
+        id: d.id,
+        titre: d.titre,
+        type: d.type,
+        description: d.description || undefined,
+        lien_lecon: d.lien_lecon || undefined,
+        date_limite: d.date_limite || undefined,
+        rendu: !!rendu,
+        statut_rendu: rendu?.statut || null,
+        commentaire_admin: rendu?.commentaire_admin || null,
+      };
+    });
 
-      const enrichis = (data || []).map(d => {
-        const renduInfo = rendusMap.get(d.id);
-        return {
-          id: d.id,
-          titre: d.titre,
-          type: d.type,
-          description: d.description || undefined,
-          lien_lecon: d.lien_lecon || undefined,
-          date_limite: d.date_limite || undefined,
-          rendu: rendusMap.has(d.id),
-          statut: renduInfo?.statut || undefined,
-          commentaire_admin: renduInfo?.commentaire_admin || undefined,
-        };
-      });
-
-      // "a_refaire" devoirs go back to the active list
-      setDevoirs(enrichis.filter(d => !d.rendu || d.statut === 'a_refaire'));
-      setDevoirsTermines(enrichis.filter(d => d.rendu && d.statut !== 'a_refaire'));
-      setLoading(false);
-    };
-
-    charger();
+    // "a_refaire" goes back to active list
+    setDevoirs(enrichis.filter(d => !d.rendu || d.statut_rendu === 'a_refaire'));
+    setDevoirsTermines(enrichis.filter(d => d.rendu && d.statut_rendu !== 'a_refaire'));
+    setLoading(false);
   }, [user]);
+
+  useEffect(() => {
+    chargerDevoirs();
+  }, [chargerDevoirs]);
 
   const handleRendu = async (devoirId: string, audioBlob: Blob) => {
     if (!user) return;
@@ -274,18 +281,37 @@ export default function BlocDevoirsEleve() {
       .from('devoirs-audios')
       .getPublicUrl(fileName);
 
-    const { error } = await supabase
-      .from('devoirs_rendus')
-      .insert({
-        devoir_id: devoirId,
-        student_id: user.id,
-        audio_url: urlData.publicUrl,
-        statut: 'rendu'
-      });
+    const audioUrl = urlData.publicUrl;
 
-    if (error) {
-      toast.error('Erreur: ' + error.message);
-      return;
+    // Check if a rendu already exists (case "à_refaire")
+    const { data: existingRendu } = await supabase
+      .from('devoirs_rendus')
+      .select('id')
+      .eq('devoir_id', devoirId)
+      .eq('student_id', user.id)
+      .maybeSingle();
+
+    if (existingRendu) {
+      // UPDATE — re-submit
+      const { error } = await supabase.from('devoirs_rendus')
+        .update({
+          audio_url: audioUrl,
+          statut: 'rendu',
+          commentaire_admin: null,
+          rendu_at: new Date().toISOString()
+        })
+        .eq('id', existingRendu.id);
+      if (error) { toast.error('Erreur: ' + error.message); return; }
+    } else {
+      // INSERT — first submission
+      const { error } = await supabase.from('devoirs_rendus')
+        .insert({
+          devoir_id: devoirId,
+          student_id: user.id,
+          audio_url: audioUrl,
+          statut: 'rendu'
+        });
+      if (error) { toast.error('Erreur: ' + error.message); return; }
     }
 
     // Notify admins
@@ -305,9 +331,8 @@ export default function BlocDevoirsEleve() {
       });
     }
 
-    toast.success('🎉 Devoir rendu avec succès !');
-    setDevoirs(prev => prev.filter(d => d.id !== devoirId));
-    if (devoir) setDevoirsTermines(prev => [{ ...devoir, rendu: true, statut: 'rendu' }, ...prev]);
+    toast.success("🎉 Devoir envoyé à l'enseignante !");
+    chargerDevoirs();
   };
 
   if (loading || (devoirs.length === 0 && devoirsTermines.length === 0)) return null;
@@ -320,7 +345,6 @@ export default function BlocDevoirsEleve() {
       "mx-4 mb-4 rounded-2xl overflow-hidden shadow border-2",
       toutAJour ? "border-green-400 dark:border-green-700" : "border-destructive dark:border-destructive"
     )}>
-      {/* Collapsible header */}
       <button
         onClick={() => setOuvert(!ouvert)}
         className={cn(
@@ -350,7 +374,6 @@ export default function BlocDevoirsEleve() {
         </div>
       </button>
 
-      {/* Expanded content */}
       {ouvert && (
         <div className="p-3 bg-background">
           {devoirs.length === 0 && devoirsTermines.length === 0 && (
