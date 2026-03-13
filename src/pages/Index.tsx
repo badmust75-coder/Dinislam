@@ -251,6 +251,7 @@ const Index = () => {
 
           {/* Homework Card */}
           <HomeworkCard />
+          <BlocDevoirsEleve />
 
           {/* Quick Stats - filtered by active modules */}
           {progress && modules && (() => {
