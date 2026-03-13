@@ -253,38 +253,6 @@ const Index = () => {
           <HomeworkCard />
           <BlocDevoirsEleve />
 
-          {/* Quick Stats - filtered by active modules */}
-          {progress && modules && (() => {
-            const PROGRESS_MAP: Record<string, {label: string;value: string;color: string;}> = {
-              '/sourates': { label: 'Sourates', value: `${progress.sourates.validated} sur ${progress.sourates.total}`, color: 'text-gold' },
-              '/nourania': { label: 'Nourania', value: `${progress.nourania.validated} sur ${progress.nourania.total}`, color: 'text-primary' },
-              '/ramadan': { label: 'Ramadan', value: `${progress.ramadan.completed} sur ${progress.ramadan.total}`, color: 'text-gold' },
-              '/alphabet': { label: 'Alphabet', value: `${progress.alphabet.validated} sur ${progress.alphabet.total}`, color: 'text-primary' },
-              '/invocations': { label: 'Invocations', value: `${progress.invocations.memorized} sur ${progress.invocations.total}`, color: 'text-gold' },
-              '/priere': { label: 'Prière', value: `${progress.prayer.validated} validées`, color: 'text-primary' }
-            };
-            const activeItems = (modules || []).
-            filter((m) => m.is_active && m.is_builtin && m.builtin_path && PROGRESS_MAP[m.builtin_path]).
-            map((m) => ({ ...PROGRESS_MAP[m.builtin_path!], order: m.display_order })).
-            sort((a, b) => a.order - b.order);
-
-            if (activeItems.length === 0) return null;
-
-            return (
-              <div className="bg-card rounded-2xl p-4 shadow-card border border-border animate-fade-in">
-                <h3 className="font-bold text-foreground mb-3">Votre progression</h3>
-                <div className={cn('grid gap-2', activeItems.length <= 3 ? 'grid-cols-3' : 'grid-cols-3 sm:grid-cols-6')}>
-                  {activeItems.map((item) =>
-                  <div key={item.label} className="text-center">
-                      <div className={cn('text-lg font-bold', item.color)}>{item.value}</div>
-                      <p className="text-xs text-muted-foreground">{item.label}</p>
-                    </div>
-                  )}
-                </div>
-              </div>);
-
-          })()}
-
           {/* Module Cards Grid - Dynamic from DB */}
           <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-5">
             {(modules || []).map((mod, index) => {
