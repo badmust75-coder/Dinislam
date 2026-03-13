@@ -164,7 +164,7 @@ function CarteDevoir({ devoir, onRendu }: { devoir: Devoir; onRendu: (id: string
         </div>
       )}
 
-      {devoir.rendu && (
+      {devoir.rendu && devoir.statut !== 'a_refaire' && (
         <div className="flex items-center gap-2 mt-1">
           {devoir.statut === 'corrige' ? (
             <>
@@ -179,6 +179,12 @@ function CarteDevoir({ devoir, onRendu }: { devoir: Devoir; onRendu: (id: string
             </p>
           )}
         </div>
+      )}
+
+      {devoir.statut === 'a_refaire' && devoir.commentaire_admin && (
+        <p className="text-xs text-destructive bg-destructive/5 rounded-lg p-2 mt-2">
+          💬 {devoir.commentaire_admin}
+        </p>
       )}
     </div>
   );
