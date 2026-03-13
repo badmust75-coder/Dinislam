@@ -14,6 +14,7 @@ type Devoir = {
   lien_lecon?: string;
   date_limite?: string;
   rendu?: boolean;
+  statut?: string; // 'rendu' | 'corrige'
 };
 
 function CarteDevoir({ devoir, onRendu }: { devoir: Devoir; onRendu: (id: string, audioBlob: Blob) => void }) {
@@ -68,7 +69,9 @@ function CarteDevoir({ devoir, onRendu }: { devoir: Devoir; onRendu: (id: string
     <div className={cn(
       "rounded-2xl p-4 mb-3 shadow-sm border-2",
       devoir.rendu
-        ? "border-green-400 bg-green-50 dark:bg-green-950/20 dark:border-green-700"
+        ? devoir.statut === 'corrige'
+          ? "border-green-400 bg-green-50 dark:bg-green-950/20 dark:border-green-700"
+          : "border-amber-400 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-700"
         : "border-destructive/40 bg-destructive/5"
     )}>
       <div className="flex items-start justify-between mb-2">
@@ -84,10 +87,14 @@ function CarteDevoir({ devoir, onRendu }: { devoir: Devoir; onRendu: (id: string
         <span className={cn(
           "text-xs font-bold px-2 py-1 rounded-full",
           devoir.rendu
-            ? "bg-green-500 text-white"
+            ? devoir.statut === 'corrige'
+              ? "bg-green-500 text-white"
+              : "bg-amber-500 text-white"
             : "bg-destructive text-destructive-foreground"
         )}>
-          {devoir.rendu ? '✅ Rendu' : '⏳ À faire'}
+          {devoir.rendu
+            ? devoir.statut === 'corrige' ? '✅ Corrigé' : '⏳ Rendu'
+            : '⏳ À faire'}
         </span>
       </div>
 
@@ -152,10 +159,18 @@ function CarteDevoir({ devoir, onRendu }: { devoir: Devoir; onRendu: (id: string
 
       {devoir.rendu && (
         <div className="flex items-center gap-2 mt-1">
-          <CheckCircle className="w-5 h-5 text-green-500" />
-          <p className="text-sm text-green-600 dark:text-green-400 font-semibold">
-            Devoir rendu — en attente de correction
-          </p>
+          {devoir.statut === 'corrige' ? (
+            <>
+              <CheckCircle className="w-5 h-5 text-green-500" />
+              <p className="text-sm text-green-600 dark:text-green-400 font-semibold">
+                ✅ Devoir corrigé par l'enseignante
+              </p>
+            </>
+          ) : (
+            <p className="text-sm text-amber-600 dark:text-amber-400 font-semibold">
+              ⏳ Devoir rendu — en attente de correction
+            </p>
+          )}
         </div>
       )}
     </div>
@@ -167,12 +182,12 @@ export default function BlocDevoirsEleve() {
   const [devoirs, setDevoirs] = useState<Devoir[]>([]);
   const [devoirsTermines, setDevoirsTermines] = useState<Devoir[]>([]);
   const [loading, setLoading] = useState(true);
+  const [ouvert, setOuvert] = useState(false);
 
   useEffect(() => {
     if (!user) return;
 
     const charger = async () => {
-      // Get student's groups
       const { data: groupData } = await supabase
         .from('student_group_members')
         .select('group_id')
@@ -180,7 +195,6 @@ export default function BlocDevoirsEleve() {
 
       const gIds = groupData?.map(g => g.group_id) || [];
 
-      // Build OR filter
       let orFilter = `assigned_to.eq.all,student_id.eq.${user.id}`;
       if (gIds.length > 0) {
         orFilter += `,group_id.in.(${gIds.join(',')})`;
@@ -192,13 +206,16 @@ export default function BlocDevoirsEleve() {
         .or(orFilter)
         .order('created_at', { ascending: false });
 
-      // Check which are already submitted
+      // Check which are already submitted + get statut
       const { data: rendus } = await supabase
         .from('devoirs_rendus')
-        .select('devoir_id')
+        .select('devoir_id, statut')
         .eq('student_id', user.id);
 
-      const rendusIds = new Set(rendus?.map(r => r.devoir_id) || []);
+      const rendusMap = new Map<string, string>();
+      (rendus || []).forEach(r => {
+        if (r.devoir_id) rendusMap.set(r.devoir_id, r.statut || 'rendu');
+      });
 
       const enrichis = (data || []).map(d => ({
         id: d.id,
@@ -207,7 +224,8 @@ export default function BlocDevoirsEleve() {
         description: d.description || undefined,
         lien_lecon: d.lien_lecon || undefined,
         date_limite: d.date_limite || undefined,
-        rendu: rendusIds.has(d.id)
+        rendu: rendusMap.has(d.id),
+        statut: rendusMap.get(d.id) || undefined,
       }));
 
       setDevoirs(enrichis.filter(d => !d.rendu));
@@ -268,34 +286,72 @@ export default function BlocDevoirsEleve() {
 
     toast.success('🎉 Devoir rendu avec succès !');
     setDevoirs(prev => prev.filter(d => d.id !== devoirId));
-    if (devoir) setDevoirsTermines(prev => [{ ...devoir, rendu: true }, ...prev]);
+    if (devoir) setDevoirsTermines(prev => [{ ...devoir, rendu: true, statut: 'rendu' }, ...prev]);
   };
 
   if (loading || (devoirs.length === 0 && devoirsTermines.length === 0)) return null;
 
+  const totalAFaire = devoirs.length;
+  const toutAJour = totalAFaire === 0;
+
   return (
-    <div className="mb-4">
-      <h2 className="text-lg font-bold text-foreground mb-3 flex items-center gap-2">
-        📚 Mes devoirs
-        {devoirs.length > 0 && (
-          <span className="bg-destructive text-destructive-foreground text-xs font-bold px-2 py-0.5 rounded-full">
-            {devoirs.length}
-          </span>
+    <div className={cn(
+      "mx-4 mb-4 rounded-2xl overflow-hidden shadow border-2",
+      toutAJour ? "border-green-400 dark:border-green-700" : "border-destructive dark:border-destructive"
+    )}>
+      {/* Collapsible header */}
+      <button
+        onClick={() => setOuvert(!ouvert)}
+        className={cn(
+          "w-full flex items-center justify-between p-4",
+          toutAJour ? "bg-green-50 dark:bg-green-950/30" : "bg-destructive/5"
         )}
-      </h2>
+      >
+        <div className="flex items-center gap-3">
+          <span className="text-2xl">📚</span>
+          <div className="text-left">
+            <p className="font-bold text-foreground">Mes Devoirs</p>
+            <p className="text-xs text-muted-foreground">
+              {toutAJour
+                ? '✅ Tout est à jour !'
+                : `${totalAFaire} devoir${totalAFaire > 1 ? 's' : ''} à rendre`}
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          {!toutAJour && (
+            <span className="bg-destructive text-destructive-foreground text-xs font-bold w-6 h-6 rounded-full flex items-center justify-center">
+              {totalAFaire}
+            </span>
+          )}
+          {toutAJour && <span className="text-xl">✅</span>}
+          <span className="text-muted-foreground">{ouvert ? '▲' : '▼'}</span>
+        </div>
+      </button>
 
-      {devoirs.map(d => (
-        <CarteDevoir key={d.id} devoir={d} onRendu={handleRendu} />
-      ))}
+      {/* Expanded content */}
+      {ouvert && (
+        <div className="p-3 bg-background">
+          {devoirs.length === 0 && devoirsTermines.length === 0 && (
+            <p className="text-muted-foreground text-sm text-center py-2">
+              Aucun devoir pour le moment
+            </p>
+          )}
 
-      {devoirsTermines.length > 0 && (
-        <div className="mt-4">
-          <p className="text-sm font-semibold text-muted-foreground mb-2">
-            ✅ Devoirs terminés ({devoirsTermines.length})
-          </p>
-          {devoirsTermines.map(d => (
+          {devoirs.map(d => (
             <CarteDevoir key={d.id} devoir={d} onRendu={handleRendu} />
           ))}
+
+          {devoirsTermines.length > 0 && (
+            <>
+              <p className="text-sm font-semibold text-muted-foreground mt-3 mb-2">
+                ✅ Devoirs terminés ({devoirsTermines.length})
+              </p>
+              {devoirsTermines.map(d => (
+                <CarteDevoir key={d.id} devoir={d} onRendu={handleRendu} />
+              ))}
+            </>
+          )}
         </div>
       )}
     </div>

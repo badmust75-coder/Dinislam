@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -8,7 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, Plus, Trash2, CheckCircle, Clock, Mic, Play } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, CheckCircle, ChevronDown, ChevronUp } from 'lucide-react';
 import { toast } from 'sonner';
 import { sendPushNotification } from '@/lib/pushHelper';
 
@@ -28,6 +28,7 @@ const AdminHomework = ({ onBack }: AdminHomeworkProps) => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [showForm, setShowForm] = useState(false);
+  const [eleveOuvert, setEleveOuvert] = useState<string | null>(null);
   const [form, setForm] = useState({
     titre: '',
     type: 'recitation',
@@ -39,7 +40,7 @@ const AdminHomework = ({ onBack }: AdminHomeworkProps) => {
     student_id: '',
   });
 
-  // Fetch devoirs
+  // Fetch devoirs with joined student/group names
   const { data: devoirs = [] } = useQuery({
     queryKey: ['admin-devoirs'],
     queryFn: async () => {
@@ -48,7 +49,26 @@ const AdminHomework = ({ onBack }: AdminHomeworkProps) => {
         .select('*')
         .order('created_at', { ascending: false });
       if (error) throw error;
-      return data || [];
+      if (!data?.length) return [];
+
+      // Enrich with student names and group names
+      const studentIds = [...new Set(data.filter(d => d.student_id).map(d => d.student_id!))];
+      const groupIds = [...new Set(data.filter(d => d.group_id).map(d => d.group_id!))];
+
+      const [{ data: profiles }, { data: groups }] = await Promise.all([
+        studentIds.length
+          ? supabase.from('profiles').select('user_id, full_name').in('user_id', studentIds)
+          : Promise.resolve({ data: [] as any[] }),
+        groupIds.length
+          ? supabase.from('student_groups').select('id, name').in('id', groupIds)
+          : Promise.resolve({ data: [] as any[] }),
+      ]);
+
+      return data.map(d => ({
+        ...d,
+        student_name: profiles?.find(p => p.user_id === d.student_id)?.full_name || null,
+        group_name: groups?.find(g => g.id === d.group_id)?.name || null,
+      }));
     },
   });
 
@@ -61,8 +81,6 @@ const AdminHomework = ({ onBack }: AdminHomeworkProps) => {
         .select('*')
         .order('rendu_at', { ascending: false });
       if (error) throw error;
-
-      // Enrich with student names and devoir titles
       if (!data?.length) return [];
 
       const studentIds = [...new Set(data.map(r => r.student_id))];
@@ -155,7 +173,6 @@ const AdminHomework = ({ onBack }: AdminHomeworkProps) => {
         .eq('id', renduId);
       if (error) throw error;
 
-      // Notify student
       sendPushNotification({
         userIds: [studentId],
         title: '🎉 Devoir validé !',
@@ -169,6 +186,14 @@ const AdminHomework = ({ onBack }: AdminHomeworkProps) => {
   });
 
   const rendusACorreger = rendus.filter((r: any) => r.statut === 'rendu');
+
+  // Group rendus by student
+  const rendusParEleve = rendus.reduce((acc: Record<string, any[]>, r: any) => {
+    const nom = r.student_name || 'Inconnu';
+    if (!acc[nom]) acc[nom] = [];
+    acc[nom].push(r);
+    return acc;
+  }, {});
 
   return (
     <div className="space-y-4">
@@ -270,13 +295,18 @@ const AdminHomework = ({ onBack }: AdminHomeworkProps) => {
         )}
         {devoirs.map((d: any) => {
           const badgeCount = rendus.filter((r: any) => r.devoir_id === d.id && r.statut === 'rendu').length;
+          const nomCible = d.assigned_to === 'all'
+            ? '👥 Tous les élèves'
+            : d.assigned_to === 'group'
+            ? `👨‍👩‍👧 ${d.group_name || 'Groupe'}`
+            : `👤 ${d.student_name || 'Élève'}`;
           return (
             <Card key={d.id} className="mb-2 relative">
               <CardContent className="p-3 flex items-center justify-between">
                 <div>
                   <p className="font-semibold text-foreground text-sm">{d.titre}</p>
                   <p className="text-xs text-muted-foreground">
-                    {d.assigned_to === 'all' ? '👥 Tous' : d.assigned_to === 'group' ? '👨‍👩‍👧 Groupe' : '👤 Élève'}
+                    {nomCible}
                     {d.date_limite && ` · 📅 ${new Date(d.date_limite).toLocaleDateString('fr-FR')}`}
                   </p>
                 </div>
@@ -301,46 +331,77 @@ const AdminHomework = ({ onBack }: AdminHomeworkProps) => {
         })}
       </div>
 
-      {/* Rendus to correct */}
+      {/* Rendus grouped by student */}
       <div>
         <h3 className="font-semibold text-foreground mb-2">
           Rendus à corriger ({rendusACorreger.length})
         </h3>
-        {rendus.map((r: any) => (
-          <Card key={r.id} className={`mb-2 ${r.statut === 'corrige' ? 'border-green-300 bg-green-50/50 dark:bg-green-950/20' : 'border-amber-300 bg-amber-50/50 dark:bg-amber-950/20'}`}>
-            <CardContent className="p-3 space-y-2">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="font-semibold text-foreground text-sm">
-                    {r.student_name} — {r.devoir_titre}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {new Date(r.rendu_at).toLocaleDateString('fr-FR')}
-                  </p>
+        {Object.keys(rendusParEleve).length === 0 && (
+          <p className="text-muted-foreground text-sm text-center py-4">Aucun rendu</p>
+        )}
+        {Object.entries(rendusParEleve).map(([nom, items]: [string, any[]]) => {
+          const pendingCount = items.filter(r => r.statut === 'rendu').length;
+          return (
+            <Card key={nom} className="mb-2 overflow-hidden">
+              <button
+                onClick={() => setEleveOuvert(eleveOuvert === nom ? null : nom)}
+                className="w-full flex items-center justify-between p-3 hover:bg-muted/50 transition-colors"
+              >
+                <span className="font-semibold text-foreground text-sm flex items-center gap-2">
+                  👤 {nom} ({items.length} rendu{items.length > 1 ? 's' : ''})
+                  {pendingCount > 0 && (
+                    <span className="bg-destructive text-destructive-foreground text-xs font-bold w-5 h-5 rounded-full flex items-center justify-center">
+                      {pendingCount}
+                    </span>
+                  )}
+                </span>
+                {eleveOuvert === nom ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+              </button>
+              {eleveOuvert === nom && (
+                <div className="px-3 pb-3 space-y-2">
+                  {items.map((r: any) => (
+                    <div
+                      key={r.id}
+                      className={`rounded-xl p-3 ${
+                        r.statut === 'corrige'
+                          ? 'bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800'
+                          : 'bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800'
+                      }`}
+                    >
+                      <p className="font-semibold text-foreground text-sm mb-1">{r.devoir_titre}</p>
+                      <p className="text-xs text-muted-foreground mb-2">
+                        {new Date(r.rendu_at).toLocaleDateString('fr-FR')}
+                      </p>
+                      {r.audio_url && (
+                        <audio
+                          src={r.audio_url}
+                          controls
+                          preload="metadata"
+                          className="w-full mb-2"
+                          style={{ height: '36px' }}
+                        />
+                      )}
+                      {r.statut === 'rendu' && (
+                        <Button
+                          size="sm"
+                          onClick={() => markCorrige.mutate({ renduId: r.id, studentId: r.student_id, devoirTitre: r.devoir_titre })}
+                          disabled={markCorrige.isPending}
+                          className="gap-1"
+                        >
+                          <CheckCircle className="h-4 w-4" />
+                          Marquer corrigé
+                        </Button>
+                      )}
+                      {r.statut === 'corrige' && (
+                        <Badge className="bg-green-500 text-white">✅ Corrigé</Badge>
+                      )}
+                    </div>
+                  ))}
                 </div>
-                {r.statut === 'corrige' && (
-                  <Badge className="bg-green-500 text-white">✅ Corrigé</Badge>
-                )}
-              </div>
-
-              {r.audio_url && (
-                <audio src={r.audio_url} controls className="w-full h-8" />
               )}
-
-              {r.statut === 'rendu' && (
-                <Button
-                  size="sm"
-                  onClick={() => markCorrige.mutate({ renduId: r.id, studentId: r.student_id, devoirTitre: r.devoir_titre })}
-                  disabled={markCorrige.isPending}
-                  className="gap-1"
-                >
-                  <CheckCircle className="h-4 w-4" />
-                  Marquer corrigé
-                </Button>
-              )}
-            </CardContent>
-          </Card>
-        ))}
+            </Card>
+          );
+        })}
       </div>
     </div>
   );
