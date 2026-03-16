@@ -391,7 +391,7 @@ const AdminInvocationManager = ({ onBack }: Props) => {
 
       {/* Add/Edit Dialog */}
       <Dialog open={formOpen} onOpenChange={setFormOpen}>
-        <DialogContent>
+        <DialogContent level="nested">
           <DialogHeader>
             <DialogTitle>{editingInvocation ? 'Modifier l\'invocation' : 'Ajouter une invocation'}</DialogTitle>
           </DialogHeader>

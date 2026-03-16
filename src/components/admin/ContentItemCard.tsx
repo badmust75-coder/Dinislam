@@ -106,7 +106,7 @@ const ContentItemCard = ({
 
       {/* Preview dialog for YouTube and Audio */}
       <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg" level="nested">
           <div className="space-y-3">
             <p className="font-semibold text-sm">{title}</p>
             {contentType === 'youtube' && (

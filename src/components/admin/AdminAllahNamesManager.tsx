@@ -388,7 +388,7 @@ const AdminAllahNamesManager = ({ onBack }: Props) => {
 
       {/* Add/Edit dialog */}
       <Dialog open={formOpen} onOpenChange={(open) => { setFormOpen(open); if (!open) setEditingName(null); }}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md" level="nested">
           <DialogHeader>
             <DialogTitle style={{ color: 'hsl(220 70% 25%)' }}>
               {editingName ? 'Modifier le nom' : 'Nouveau nom'}

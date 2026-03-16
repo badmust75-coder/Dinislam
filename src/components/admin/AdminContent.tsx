@@ -312,7 +312,7 @@ const AdminContent = () => {
 
       {/* Edit Dialog */}
       <Dialog open={!!editItem} onOpenChange={() => setEditItem(null)}>
-        <DialogContent>
+        <DialogContent level="nested">
           <DialogHeader>
             <DialogTitle>Modifier le contenu</DialogTitle>
           </DialogHeader>

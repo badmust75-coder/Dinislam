@@ -446,7 +446,7 @@ const AdminHomework = ({ onBack }: AdminHomeworkProps) => {
 
       {/* Modal "À refaire" */}
       <Dialog open={!!modalARefaire} onOpenChange={(open) => { if (!open) { setModalARefaire(null); setCommentaire(''); } }}>
-        <DialogContent>
+        <DialogContent level="nested">
           <DialogHeader>
             <DialogTitle>🔄 Devoir à refaire</DialogTitle>
           </DialogHeader>

@@ -382,7 +382,7 @@ const AdminGenericModuleManager = ({ moduleId, moduleTitle, onBack }: Props) => 
 
       {/* Form dialog */}
       <Dialog open={formOpen} onOpenChange={(open) => { setFormOpen(open); if (!open) setEditingCard(null); }}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md" level="nested">
           <DialogHeader>
             <DialogTitle>{editingCard ? 'Modifier la carte' : 'Nouvelle carte'}</DialogTitle>
           </DialogHeader>

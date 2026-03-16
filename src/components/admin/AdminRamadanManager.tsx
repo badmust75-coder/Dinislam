@@ -1141,7 +1141,7 @@ const AdminRamadanManager = ({ onBack }: AdminRamadanManagerProps) => {
 
       {/* Day Editor Dialog */}
       <Dialog open={!!selectedDay} onOpenChange={() => setSelectedDay(null)}>
-        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto" level="nested">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               Jour {currentDayData?.day_number}

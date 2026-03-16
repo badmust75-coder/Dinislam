@@ -11,6 +11,15 @@
 
 @layer base {
   :root {
+    /* Z-index hierarchy for modals */
+    --z-modal-backdrop: 400;
+    --z-modal: 450;
+    --z-modal-nested-backdrop: 500;
+    --z-modal-nested: 550;
+    --z-modal-confirm-backdrop: 600;
+    --z-modal-confirm: 650;
+    --z-toast: 9999;
+
     /* Core Colors - Oriental Theme */
     --background: 45 33% 97%;
     --foreground: 220 60% 15%;

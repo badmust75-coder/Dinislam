@@ -253,7 +253,7 @@ const ScheduledNotifications = () => {
 
         {/* Create/Edit Dialog */}
         <Dialog open={dialogOpen} onOpenChange={(o) => { if (!o) resetForm(); }}>
-          <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto">
+          <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto" level="nested">
             <DialogHeader>
               <DialogTitle>{editingId ? 'Modifier la notification' : 'Programmer une notification'}</DialogTitle>
             </DialogHeader>

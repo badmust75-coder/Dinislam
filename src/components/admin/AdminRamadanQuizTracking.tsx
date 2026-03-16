@@ -224,7 +224,7 @@ const AdminRamadanQuizTracking = ({ onBack }: AdminRamadanQuizTrackingProps) => 
 
       {/* Student Detail Dialog */}
       <Dialog open={!!selectedStudent} onOpenChange={(open) => !open && setSelectedStudent(null)}>
-        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto" level="nested">
           <DialogHeader>
             <DialogTitle>{selectedStudent?.full_name || 'Élève'} — Quiz Ramadan</DialogTitle>
           </DialogHeader>

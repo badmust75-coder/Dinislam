@@ -288,7 +288,7 @@ const AdminStudentDetails = ({ onBack }: AdminStudentDetailsProps) => {
 
       {/* Progress dialog */}
       <Dialog open={!!selectedStudent} onOpenChange={() => setSelectedStudent(null)}>
-        <DialogContent className="max-w-md max-h-[80vh] overflow-y-auto">
+        <DialogContent className="max-w-md max-h-[80vh] overflow-y-auto" level="nested">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <User className="h-5 w-5" /> {selectedStudent?.full_name || 'Élève'}
@@ -316,7 +316,7 @@ const AdminStudentDetails = ({ onBack }: AdminStudentDetailsProps) => {
 
       {/* DOB dialog */}
       <Dialog open={!!dobDialogStudent} onOpenChange={() => setDobDialogStudent(null)}>
-        <DialogContent className="max-w-xs rounded-2xl">
+        <DialogContent className="max-w-xs rounded-2xl" level="nested">
           <DialogHeader>
             <DialogTitle>📅 Date de naissance</DialogTitle>
           </DialogHeader>

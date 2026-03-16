@@ -90,7 +90,7 @@ const AdminCommandModal = ({
     <>
       {/* Popup principale — centrée */}
       <div
-        className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4"
+        className="fixed inset-0 bg-black/60 z-[400] flex items-center justify-center p-4"
         onClick={onClose}
       >
         <div
@@ -204,7 +204,7 @@ const AdminCommandModal = ({
       {/* Modale section à 80% */}
       {modalSection && (
         <div
-          className="fixed inset-0 bg-black/60 z-[60] flex items-end justify-center"
+          className="fixed inset-0 bg-black/60 z-[500] flex items-end justify-center"
           onClick={() => setModalSection(null)}
         >
           <div
