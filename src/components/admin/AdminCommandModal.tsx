@@ -1,8 +1,14 @@
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { UserCheck, ClipboardCheck, Sparkles, Hand, Shield, BarChart3 } from 'lucide-react';
+import { X, GripVertical } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
+import AdminRegistrationValidations from '@/components/admin/AdminRegistrationValidations';
+import AdminSourateValidations from '@/components/admin/AdminSourateValidations';
+import AdminNouraniaValidations from '@/components/admin/AdminNouraniaValidations';
+import AdminHomework from '@/components/admin/AdminHomework';
+import AdminGlobalStats from '@/components/admin/AdminGlobalStats';
+import AdminNotifications from '@/components/admin/AdminNotifications';
 
 interface AdminCommandModalProps {
   open: boolean;
@@ -16,95 +22,274 @@ interface AdminCommandModalProps {
   total: number;
 }
 
+const BOUTONS_DEFAULT = [
+  { id: 'inscriptions', label: 'Inscriptions en attente', section: 'users', emoji: '📝' },
+  { id: 'sourates', label: 'Sourates à valider', section: 'sourates-validations', emoji: '📖' },
+  { id: 'nourania', label: 'Nourania à valider', section: 'nourania-validations', emoji: '🔤' },
+  { id: 'devoirs', label: 'Devoirs à corriger', section: 'cahier-texte', emoji: '📚' },
+];
+
 const AdminCommandModal = ({
   open,
   onOpenChange,
   pendingRegistrations,
   pendingSourates,
   pendingNourania,
-  pendingInvocations,
-  pendingMessages,
   pendingHomework,
   total,
 }: AdminCommandModalProps) => {
   const navigate = useNavigate();
+  const [boutons, setBoutons] = useState(BOUTONS_DEFAULT);
+  const [modalSection, setModalSection] = useState<string | null>(null);
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const longPressTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
-  const cards = [
-    { emoji: '📝', label: 'Inscriptions en attente', count: pendingRegistrations, icon: UserCheck, section: 'registration-validations' },
-    { emoji: '✅', label: 'Sourates à valider', count: pendingSourates, icon: ClipboardCheck, section: 'sourates-validations' },
-    { emoji: '🌟', label: 'Nourania à valider', count: pendingNourania, icon: Sparkles, section: 'nourania-validations' },
-    { emoji: '📚', label: 'Devoirs à corriger', count: pendingHomework, icon: ClipboardCheck, section: 'cahier-texte' },
-  ];
-
-  const handleCardClick = (section: string) => {
-    onOpenChange(false);
-    navigate(`/admin?section=${section}`);
+  const compteurs: Record<string, number> = {
+    inscriptions: pendingRegistrations,
+    sourates: pendingSourates,
+    nourania: pendingNourania,
+    devoirs: pendingHomework,
   };
 
+  useEffect(() => {
+    const saved = localStorage.getItem('admin_boutons_order');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length === BOUTONS_DEFAULT.length) {
+          setBoutons(parsed);
+        }
+      } catch { /* ignore */ }
+    }
+  }, []);
+
+  const handlePressStart = (index: number) => {
+    longPressTimers.current[index] = setTimeout(() => {
+      setDragIndex(index);
+      setIsDragging(true);
+    }, 2000);
+  };
+
+  const handlePressEnd = (index: number) => {
+    clearTimeout(longPressTimers.current[index]);
+    if (!isDragging) {
+      setModalSection(boutons[index].section);
+    }
+    setIsDragging(false);
+    setDragIndex(null);
+  };
+
+  const handleDragOver = (index: number) => {
+    if (dragIndex === null || dragIndex === index) return;
+    const newBoutons = [...boutons];
+    const [moved] = newBoutons.splice(dragIndex, 1);
+    newBoutons.splice(index, 0, moved);
+    setBoutons(newBoutons);
+    setDragIndex(index);
+    localStorage.setItem('admin_boutons_order', JSON.stringify(newBoutons));
+  };
+
+  const onClose = () => onOpenChange(false);
+
+  if (!open) return null;
+
+  const totalBadge = Object.values(compteurs).reduce((a, b) => a + b, 0);
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-sm mx-auto">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-lg">
-            <Shield className="h-5 w-5 text-primary" /> 🛡️ Administration
-          </DialogTitle>
-        </DialogHeader>
-
-        <div className="grid grid-cols-2 gap-3">
-          {cards.map((card) => {
-            const isOk = card.count === 0;
-            return (
-              <button
-                key={card.section}
-                onClick={() => handleCardClick(card.section)}
-                className={`rounded-xl p-3 border transition-all text-left ${
-                  isOk
-                    ? 'bg-emerald-500/10 border-emerald-300 dark:border-emerald-700 hover:bg-emerald-500/20'
-                    : 'bg-red-500/10 border-red-300 dark:border-red-700 hover:bg-red-500/20'
-                }`}
-              >
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-lg">{card.emoji}</span>
-                  {card.count > 0 && (
-                    <Badge className="bg-red-500 text-white text-xs px-2 py-0 animate-pulse">
-                      {card.count}
-                    </Badge>
-                  )}
-                </div>
-                <p className={`text-xs font-medium ${isOk ? 'text-emerald-700 dark:text-emerald-300' : 'text-red-700 dark:text-red-300'}`}>
-                  {card.label}
-                </p>
-                <p className={`text-lg font-bold ${isOk ? 'text-emerald-600' : 'text-red-600'}`}>
-                  {card.count}
-                </p>
-              </button>
-            );
-          })}
-        </div>
-
-        {total === 0 && (
-          <div className="text-center py-3 text-sm text-emerald-600 font-medium">
-            Tout est à jour ! ✅
+    <>
+      {/* Popup principale */}
+      <div
+        className="fixed inset-0 bg-black/50 z-50 flex items-end justify-center"
+        onClick={onClose}
+      >
+        <div
+          className="bg-background rounded-t-3xl w-full max-w-lg p-5 pb-8"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Header */}
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <span className="text-xl">🛡️</span>
+              <h2 className="text-xl font-bold text-foreground">Administration</h2>
+              {totalBadge > 0 && (
+                <span className="bg-destructive text-destructive-foreground text-xs font-bold px-2 py-0.5 rounded-full">
+                  {totalBadge}
+                </span>
+              )}
+            </div>
+            <button
+              onClick={onClose}
+              className="bg-destructive text-destructive-foreground w-8 h-8 rounded-full flex items-center justify-center"
+            >
+              <X className="w-4 h-4" />
+            </button>
           </div>
-        )}
 
-        <div className="flex flex-col gap-2 mt-2">
-          <Button onClick={() => { onOpenChange(false); navigate('/admin'); }} className="w-full">
-            Voir le tableau de bord complet →
-          </Button>
-          <Button variant="outline" onClick={() => { onOpenChange(false); navigate('/monitoring'); }} className="w-full">
-            <BarChart3 className="h-4 w-4 mr-2" /> 📊 Monitoring →
-          </Button>
-          <Button variant="outline" onClick={() => { onOpenChange(false); navigate('/admin?section=global-stats'); }} className="w-full">
-            📊 Statistiques globales →
-          </Button>
-          <Button variant="outline" onClick={() => { onOpenChange(false); navigate('/admin?section=notifications'); }} className="w-full">
-            🔔 Gestion des notifications →
-          </Button>
+          {/* Boutons réorganisables */}
+          <div className="space-y-2 mb-4">
+            {boutons.map((btn, index) => {
+              const count = compteurs[btn.id] || 0;
+              const hasAction = count > 0;
+              return (
+                <div
+                  key={btn.id}
+                  draggable={isDragging}
+                  onDragOver={() => handleDragOver(index)}
+                  onTouchStart={() => handlePressStart(index)}
+                  onTouchEnd={() => handlePressEnd(index)}
+                  onMouseDown={() => handlePressStart(index)}
+                  onMouseUp={() => handlePressEnd(index)}
+                  className={`w-full flex items-center justify-between px-4 py-3 rounded-xl font-semibold text-white cursor-pointer select-none transition-all active:scale-95 ${
+                    hasAction ? 'bg-destructive' : 'bg-emerald-500'
+                  }`}
+                  style={{
+                    boxShadow:
+                      isDragging && dragIndex === index
+                        ? '0 8px 24px rgba(0,0,0,0.2)'
+                        : undefined,
+                  }}
+                >
+                  <div className="flex items-center gap-3">
+                    <GripVertical className="w-4 h-4 opacity-50" />
+                    <span>
+                      {btn.emoji} {btn.label}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {hasAction && (
+                      <span className="bg-white text-destructive text-xs font-bold w-6 h-6 rounded-full flex items-center justify-center">
+                        {count}
+                      </span>
+                    )}
+                    <span className="text-white/70">→</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Boutons navigation */}
+          <div className="space-y-2">
+            <button
+              onClick={() => {
+                onClose();
+                navigate('/admin');
+              }}
+              className="w-full py-3 rounded-xl font-semibold text-primary-foreground bg-primary"
+            >
+              Voir le tableau de bord complet →
+            </button>
+            <button
+              onClick={() => setModalSection('monitoring')}
+              className="w-full py-3 rounded-xl font-semibold border border-border text-foreground bg-background"
+            >
+              📊 Monitoring →
+            </button>
+            <button
+              onClick={() => setModalSection('stats')}
+              className="w-full py-3 rounded-xl font-semibold border border-border text-foreground bg-background"
+            >
+              📈 Statistiques globales →
+            </button>
+            <button
+              onClick={() => setModalSection('notifications')}
+              className="w-full py-3 rounded-xl font-semibold border border-border text-foreground bg-background"
+            >
+              🔔 Gestion des notifications →
+            </button>
+          </div>
+
+          {isDragging && (
+            <p className="text-center text-xs text-muted-foreground mt-3">
+              🔀 Glisse pour réorganiser...
+            </p>
+          )}
         </div>
-      </DialogContent>
-    </Dialog>
+      </div>
+
+      {/* Modale section à 80% */}
+      {modalSection && (
+        <div
+          className="fixed inset-0 bg-black/60 z-[60] flex items-end justify-center"
+          onClick={() => setModalSection(null)}
+        >
+          <div
+            className="bg-background rounded-t-3xl w-full max-w-lg overflow-y-auto"
+            style={{ height: '80vh' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="sticky top-0 bg-background border-b border-border px-4 py-3 flex items-center justify-between rounded-t-3xl z-10">
+              <h3 className="font-bold text-lg text-foreground">
+                {boutons.find((b) => b.section === modalSection)?.emoji}{' '}
+                {boutons.find((b) => b.section === modalSection)?.label || modalSection}
+              </h3>
+              <button
+                onClick={() => setModalSection(null)}
+                className="bg-muted rounded-full w-8 h-8 flex items-center justify-center"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="p-4 overflow-y-auto">
+              <AdminSectionRenderer
+                section={modalSection}
+                onClose={() => setModalSection(null)}
+                onNavigate={(path) => {
+                  setModalSection(null);
+                  onClose();
+                  navigate(path);
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 };
+
+function AdminSectionRenderer({
+  section,
+  onClose,
+  onNavigate,
+}: {
+  section: string;
+  onClose: () => void;
+  onNavigate: (path: string) => void;
+}) {
+  switch (section) {
+    case 'users':
+      return <AdminRegistrationValidations onBack={onClose} />;
+    case 'sourates-validations':
+      return <AdminSourateValidations onBack={onClose} />;
+    case 'nourania-validations':
+      return <AdminNouraniaValidations onBack={onClose} />;
+    case 'cahier-texte':
+      return <AdminHomework onBack={onClose} />;
+    case 'monitoring':
+      return (
+        <div className="text-center py-8">
+          <p className="text-muted-foreground mb-4">Accédez au monitoring complet</p>
+          <button
+            onClick={() => onNavigate('/monitoring')}
+            className="bg-primary text-primary-foreground px-6 py-3 rounded-xl font-semibold"
+          >
+            Ouvrir le Monitoring →
+          </button>
+        </div>
+      );
+    case 'stats':
+      return <AdminGlobalStats onBack={onClose} />;
+    case 'notifications':
+      return <AdminNotifications />;
+    default:
+      return (
+        <p className="text-muted-foreground text-center py-8">
+          Section en cours de développement
+        </p>
+      );
+  }
+}
 
 export default AdminCommandModal;
