@@ -539,43 +539,7 @@ const Admin = () => {
   return (
     <AppLayout title="Tableau de bord">
       <div className="p-4 space-y-4">
-        {/* Validation cards in 2x2 grid */}
-
-        {/* Validation cards in 2x2 grid */}
-        <div className="grid grid-cols-2 gap-3">
-          {[
-            { view: 'registration-validations' as ViewType, count: pendingRegistrations, icon: UserCheck, label: "Validation d'inscription", pendingText: 'Inscription(s) à valider', okText: 'Aucune inscription en attente' },
-            { view: 'sourates-validations' as ViewType, count: pendingCount, icon: ClipboardCheck, label: 'Validation Sourates', pendingText: 'Sourate(s) à valider', okText: 'Aucune validation en attente' },
-            { view: 'nourania-validations' as ViewType, count: pendingNourania, icon: Sparkles, label: 'Validation Nourania', pendingText: 'Leçon(s) à valider', okText: 'Aucune validation en attente' },
-            { view: 'homework' as ViewType, count: pendingInvocations, icon: ClipboardList, label: 'Devoirs à corriger', pendingText: 'Rendu(s) à corriger', okText: 'Aucun rendu en attente' },
-          ].map((item) => {
-            const Icon = item.icon;
-            const hasPending = item.count > 0;
-            return (
-              <button
-                key={item.view}
-                onClick={() => setCurrentView(item.view)}
-                className={`rounded-2xl p-3 shadow-card border transition-all duration-300 ${
-                  hasPending ? 'bg-red-500/10 border-red-300 dark:border-red-700 hover:bg-red-500/20' : 'bg-green-500/10 border-green-300 dark:border-green-700 hover:bg-green-500/20'
-                }`}
-              >
-                <div className="flex flex-col items-center gap-2 text-center">
-                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${hasPending ? 'bg-red-500/20' : 'bg-green-500/20'}`}>
-                    <Icon className={`h-5 w-5 ${hasPending ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`} />
-                  </div>
-                  <p className={`font-bold text-xs ${hasPending ? 'text-red-700 dark:text-red-300' : 'text-green-700 dark:text-green-300'}`}>{item.label}</p>
-                  <p className={`text-[10px] ${hasPending ? 'text-red-600/70 dark:text-red-400/70' : 'text-green-600/70 dark:text-green-400/70'}`}>
-                    {hasPending ? item.pendingText : item.okText}
-                  </p>
-                  {hasPending && <Badge className="bg-red-500 text-white hover:bg-red-600 text-sm px-2 py-0 animate-pulse">{item.count}</Badge>}
-                </div>
-              </button>
-            );
-          })}
-        </div>
-
-        <h2 className="text-xl font-bold text-foreground mb-2">Modules natifs</h2>
-        <p className="text-sm text-muted-foreground mb-4">Cliquer sur une carte pour y accéder</p>
+        <h2 className="text-xl font-bold text-foreground mb-2">Modules</h2>
 
         {/* Sortable cards area - 3 col grid (2 col on small screens) */}
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
