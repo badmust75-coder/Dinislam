@@ -28,26 +28,14 @@ interface Conversation {
 const AdminMoonAssistant = () => {
   const { isAdmin, user } = useAuth();
   const { toast } = useToast();
+  const location = useLocation();
 
-  const moonRef = useRef<HTMLButtonElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const [isDragging, setIsDragging] = useState(false);
-  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
-  const [hasMoved, setHasMoved] = useState(false);
-  const [position, setPosition] = useState(() => {
-    if (typeof window === 'undefined') return { x: 0, y: 0 };
-    try {
-      const saved = localStorage.getItem('adminMoon-position');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        return {
-          x: Math.max(0, Math.min(parsed.x || 0, window.innerWidth - 80)),
-          y: Math.max(0, Math.min(parsed.y || 0, window.innerHeight - 120))
-        };
-      }
-    } catch {}
-    return { x: 16, y: Math.max(0, window.innerHeight - 120) };
-  });
+  const isDraggingBtn = useRef(false);
+  const startTouch = useRef({ x: 0, y: 0 });
+  const startPos = useRef({ x: 0, y: 0 });
+
+  const [pos, setPos] = useState({ x: 16, y: typeof window !== 'undefined' ? window.innerHeight - 80 : 0 });
   const [isOpen, setIsOpen] = useState(false);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
@@ -59,11 +47,10 @@ const AdminMoonAssistant = () => {
 
   const activeConversation = conversations.find(c => c.id === activeConversationId);
 
+  // Reset position on route change
   useEffect(() => {
-    try {
-      localStorage.setItem('adminMoon-position', JSON.stringify(position));
-    } catch {}
-  }, [position]);
+    setPos({ x: 16, y: window.innerHeight - 80 });
+  }, [location.pathname]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
