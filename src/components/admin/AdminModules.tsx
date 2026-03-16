@@ -371,7 +371,7 @@ const AdminModules = ({ onBack }: AdminModulesProps) => {
 
       {/* Add/Edit Module Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent>
+        <DialogContent level="nested">
           <DialogHeader>
             <DialogTitle>{editingModule ? 'Modifier le module' : 'Ajouter un module'}</DialogTitle>
           </DialogHeader>
