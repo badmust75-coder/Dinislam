@@ -347,17 +347,18 @@ const AdminMoonAssistant = () => {
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
-        className="fixed z-[9999] w-14 h-14 rounded-full flex items-center justify-center shadow-lg select-none touch-none transition-transform"
+        className="fixed z-40 w-10 h-10 rounded-full flex items-center justify-center shadow-md select-none touch-none transition-all hover:scale-105 active:scale-95"
         style={{
           left: `${position.x}px`,
           top: `${position.y}px`,
-          background: 'linear-gradient(135deg, #F59E0B, #D97706)',
-          transform: isDragging ? 'scale(1.15)' : 'scale(1)',
+          backgroundColor: '#1a1a2e',
+          border: '1px solid rgba(255,255,255,0.15)',
+          transform: isDragging ? 'scale(1.15)' : undefined,
           cursor: isDragging ? 'grabbing' : 'pointer',
         }}
         aria-label="Assistant Admin"
       >
-        <Moon className="h-7 w-7 text-white" fill="white" />
+        <span style={{ fontSize: '18px', lineHeight: 1, filter: 'drop-shadow(0 0 4px rgba(200,180,255,0.6))' }}>🌙</span>
       </button>
 
       {/* Chat Panel */}

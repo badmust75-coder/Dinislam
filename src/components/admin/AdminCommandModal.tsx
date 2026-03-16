@@ -208,8 +208,8 @@ const AdminCommandModal = ({
           onClick={() => setModalSection(null)}
         >
           <div
-            className="bg-background rounded-t-3xl w-full max-w-lg overflow-y-auto"
-            style={{ height: '80vh' }}
+            className="bg-background rounded-t-3xl w-full max-w-lg"
+            style={{ height: '80vh', overflowY: 'auto', overflowX: 'visible' }}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="sticky top-0 bg-background border-b border-border px-4 py-3 flex items-center justify-between rounded-t-3xl z-10">
