@@ -360,7 +360,7 @@ const AdminStudentGroups = () => {
 
       {/* Create/Edit Dialog */}
       <Dialog open={dialogOpen} onOpenChange={(v) => { if (!v) closeDialog(); else setDialogOpen(true); }}>
-        <DialogContent className="max-w-sm max-h-[85vh] overflow-y-auto">
+        <DialogContent className="max-w-sm max-h-[85vh] overflow-y-auto z-[500]">
           <DialogHeader>
             <DialogTitle>{editingGroup ? '✏️ Modifier le groupe' : '➕ Nouveau groupe'}</DialogTitle>
             <DialogDescription>
