@@ -346,19 +346,22 @@ const AdminMoonAssistant = () => {
     <>
       {/* Floating Moon Button */}
       <button
-        ref={moonRef}
-        onPointerDown={handlePointerDown}
-        onPointerMove={handlePointerMove}
-        onPointerUp={handlePointerUp}
-        className="fixed z-40 w-10 h-10 rounded-full flex items-center justify-center shadow-md select-none touch-none transition-all hover:scale-105 active:scale-95"
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        onMouseDown={handleMouseDown}
+        onClick={(e) => { if (isDraggingBtn.current) e.preventDefault(); }}
         style={{
-          left: `${position.x}px`,
-          top: `${position.y}px`,
+          position: 'fixed',
+          left: pos.x,
+          top: pos.y,
+          zIndex: 40,
+          touchAction: 'none',
+          cursor: 'grab',
           backgroundColor: '#1a1a2e',
           border: '1px solid rgba(255,255,255,0.15)',
-          transform: isDragging ? 'scale(1.15)' : undefined,
-          cursor: isDragging ? 'grabbing' : 'pointer',
         }}
+        className="w-10 h-10 rounded-full shadow-md flex items-center justify-center transition-shadow hover:shadow-lg select-none"
         aria-label="Assistant Admin"
       >
         <span style={{ fontSize: '18px', lineHeight: 1, filter: 'drop-shadow(0 0 4px rgba(200,180,255,0.6))' }}>🌙</span>
