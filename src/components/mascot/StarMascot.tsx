@@ -71,10 +71,9 @@ const StarMascot = () => {
     };
 
     const handleResize = () => {
-      // Keep star within bounds on window resize
-      setPosition(prev => ({
-        x: Math.min(prev.x, window.innerWidth - 64),
-        y: Math.min(prev.y, window.innerHeight - 64)
+      setPos(prev => ({
+        x: Math.min(prev.x, window.innerWidth - 48),
+        y: Math.min(prev.y, window.innerHeight - 48)
       }));
     };
 
@@ -82,17 +81,6 @@ const StarMascot = () => {
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, [user]);
-
-  // Save position to localStorage when it changes
-  useEffect(() => {
-    try {
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('starMascot-position', JSON.stringify(position));
-      }
-    } catch (error) {
-      console.warn('Failed to save mascot position:', error);
-    }
-  }, [position]);
 
   // Welcome message when opening
   useEffect(() => {
