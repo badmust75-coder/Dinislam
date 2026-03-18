@@ -315,16 +315,7 @@ const SourateDetailDialog = ({
                         )}
                         {/* Verse audio */}
                         {verseAudio && (
-                          <div className="flex items-center gap-2 mt-1">
-                            <Volume2 className="h-3 w-3 text-amber-600 dark:text-amber-400 shrink-0" />
-                            <audio
-                              src={verseAudio.audio_url}
-                              controls
-                              preload="none"
-                              className="w-full"
-                              style={{ height: '28px' }}
-                            />
-                          </div>
+                          <LecteurVerset audioUrl={verseAudio.audio_url} />
                         )}
                         {/* Verse number indicator */}
                         <p className={cn(
