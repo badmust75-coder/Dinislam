@@ -16,76 +16,97 @@ function LecteurVerset({ audioUrl }: { audioUrl: string }) {
   const [progress, setProgress] = useState(0);
   const [duree, setDuree] = useState(0);
   const [temps, setTemps] = useState(0);
+  const [erreur, setErreur] = useState(false);
+  const [charge, setCharge] = useState(false);
   const VITESSES = [0.5, 1, 1.5, 2];
 
   const formatTemps = (s: number) => {
-    if (isNaN(s)) return '0:00';
+    if (!s || isNaN(s)) return '0:00';
     const m = Math.floor(s / 60);
     const sec = Math.floor(s % 60);
     return `${m}:${sec.toString().padStart(2, '0')}`;
   };
 
   const togglePlay = async () => {
-    if (!audioRef.current) return;
+    const audio = audioRef.current;
+    if (!audio) return;
+    setErreur(false);
     if (playing) {
-      audioRef.current.pause();
+      audio.pause();
       setPlaying(false);
-    } else {
-      try {
-        await audioRef.current.play();
-        setPlaying(true);
-      } catch (e) {
-        toast.error("Impossible de lire l'audio");
+      return;
+    }
+    try {
+      if (audio.readyState < 2) {
+        setCharge(true);
+        audio.load();
+        await new Promise((resolve, reject) => {
+          audio.oncanplay = resolve;
+          audio.onerror = reject;
+          setTimeout(reject, 10000);
+        });
+        setCharge(false);
       }
+      audio.playbackRate = vitesse;
+      await audio.play();
+      setPlaying(true);
+    } catch (e) {
+      console.error('Audio error:', e);
+      setCharge(false);
+      setErreur(true);
+      setPlaying(false);
     }
   };
 
   const changerVitesse = (v: number) => {
-    if (!audioRef.current) return;
-    audioRef.current.playbackRate = v;
+    if (audioRef.current) audioRef.current.playbackRate = v;
     setVitesse(v);
   };
 
-  const handleTimeUpdate = () => {
-    if (!audioRef.current) return;
-    setTemps(audioRef.current.currentTime);
-    const pct = audioRef.current.duration
-      ? (audioRef.current.currentTime / audioRef.current.duration) * 100
-      : 0;
-    setProgress(pct);
-  };
-
-  const handleLoadedMetadata = () => {
-    if (audioRef.current) setDuree(audioRef.current.duration);
-  };
-
-  const handleEnded = () => setPlaying(false);
-
   const handleProgressClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!audioRef.current || !duree) return;
+    const audio = audioRef.current;
+    if (!audio || !duree) return;
     const rect = e.currentTarget.getBoundingClientRect();
-    const pct = (e.clientX - rect.left) / rect.width;
-    audioRef.current.currentTime = pct * duree;
+    audio.currentTime = ((e.clientX - rect.left) / rect.width) * duree;
   };
+
+  if (!audioUrl) return null;
 
   return (
     <div className="rounded-xl p-3 mt-2"
       style={{ backgroundColor: '#fef3c7', border: '1px solid #fde68a' }}>
       <audio
         ref={audioRef}
-        src={audioUrl}
-        onTimeUpdate={handleTimeUpdate}
-        onLoadedMetadata={handleLoadedMetadata}
-        onEnded={handleEnded}
-        preload="metadata"
-      />
+        preload="none"
+        onTimeUpdate={() => {
+          const a = audioRef.current;
+          if (!a) return;
+          setTemps(a.currentTime);
+          setProgress(a.duration ? (a.currentTime / a.duration) * 100 : 0);
+        }}
+        onLoadedMetadata={() => {
+          if (audioRef.current) setDuree(audioRef.current.duration);
+        }}
+        onEnded={() => setPlaying(false)}
+        onError={() => { setErreur(true); setPlaying(false); setCharge(false); }}
+      >
+        <source src={audioUrl} />
+      </audio>
+      {erreur && (
+        <p className="text-red-500 text-xs mb-2">
+          ⚠️ Impossible de charger l'audio
+        </p>
+      )}
       <div className="flex items-center gap-2 mb-2">
         <button
           onClick={togglePlay}
+          disabled={charge}
           className="w-9 h-9 rounded-full flex items-center justify-center text-white flex-shrink-0 shadow-sm active:scale-95"
-          style={{ backgroundColor: '#f59e0b' }}
+          style={{ backgroundColor: charge ? '#9ca3af' : '#f59e0b' }}
         >
-          {playing ? (
+          {charge ? (
+            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+          ) : playing ? (
             <svg viewBox="0 0 24 24" width="14" height="14" fill="white">
               <rect x="5" y="3" width="4" height="18" rx="1"/>
               <rect x="15" y="3" width="4" height="18" rx="1"/>
@@ -96,16 +117,14 @@ function LecteurVerset({ audioUrl }: { audioUrl: string }) {
             </svg>
           )}
         </button>
-        <div className="flex-1 flex flex-col gap-1">
+        <div className="flex-1">
           <div
-            className="w-full h-2 rounded-full cursor-pointer"
+            className="w-full h-2 rounded-full cursor-pointer mb-1"
             style={{ backgroundColor: '#e5e7eb' }}
             onClick={handleProgressClick}
           >
-            <div
-              className="h-2 rounded-full transition-all"
-              style={{ width: `${progress}%`, backgroundColor: '#f59e0b' }}
-            />
+            <div className="h-2 rounded-full"
+              style={{ width: `${progress}%`, backgroundColor: '#f59e0b' }} />
           </div>
           <div className="flex justify-between text-xs text-gray-400">
             <span>{formatTemps(temps)}</span>
@@ -115,16 +134,13 @@ function LecteurVerset({ audioUrl }: { audioUrl: string }) {
       </div>
       <div className="flex justify-end gap-1">
         {VITESSES.map(v => (
-          <button
-            key={v}
-            onClick={() => changerVitesse(v)}
-            className="px-2.5 py-1 rounded-lg text-xs font-bold transition-all active:scale-95"
+          <button key={v} onClick={() => changerVitesse(v)}
+            className="px-2.5 py-1 rounded-lg text-xs font-bold active:scale-95"
             style={{
               backgroundColor: vitesse === v ? '#f59e0b' : '#ffffff',
               color: vitesse === v ? '#ffffff' : '#9ca3af',
               border: `1px solid ${vitesse === v ? '#f59e0b' : '#e5e7eb'}`
-            }}
-          >
+            }}>
             ×{v}
           </button>
         ))}
@@ -132,7 +148,6 @@ function LecteurVerset({ audioUrl }: { audioUrl: string }) {
     </div>
   );
 }
-
 interface SourateDetailDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
