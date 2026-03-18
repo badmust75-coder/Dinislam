@@ -124,8 +124,8 @@ const FastingTracker = () => {
                 <polygon
                   points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"
                   fill={jeune ? '#22c55e' : '#e5e7eb'}
-                  stroke={jeune ? '#16a34a' : '#f59e0b'}
-                  strokeWidth="1"
+                  stroke="#f59e0b"
+                  strokeWidth="1.5"
                 />
                 <text
                   x="12"
