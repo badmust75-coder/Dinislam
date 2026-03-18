@@ -1,16 +1,15 @@
-import { useState, useRef } from 'react';
-import { Star } from 'lucide-react';
+import { useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import confetti from 'canvas-confetti';
+import { toast } from 'sonner';
 
 const FastingTracker = () => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const [glowingDay, setGlowingDay] = useState<number | null>(null);
-  const buttonRefs = useRef<Map<number, HTMLButtonElement>>(new Map());
+  const [joursJeunes, setJoursJeunes] = useState<number[]>([]);
 
   const { data: fastingData = [] } = useQuery({
     queryKey: ['ramadan-fasting', user?.id],
@@ -19,67 +18,64 @@ const FastingTracker = () => {
       const { data, error } = await supabase
         .from('user_ramadan_fasting')
         .select('*')
-        .eq('user_id', user.id);
+        .eq('user_id', user.id)
+        .eq('has_fasted', true);
       if (error) throw error;
       return data;
     },
     enabled: !!user?.id,
   });
 
-  const toggleFastingMutation = useMutation({
-    mutationFn: async ({ dayNumber, hasFasted }: { dayNumber: number; hasFasted: boolean }) => {
-      if (!user?.id) throw new Error('Non connecté');
-      const existing = fastingData.find(f => f.day_number === dayNumber);
-      if (existing) {
-        const { error } = await supabase
-          .from('user_ramadan_fasting')
-          .update({ has_fasted: hasFasted })
-          .eq('id', existing.id);
-        if (error) throw error;
-      } else {
-        const { error } = await (supabase as any)
-          .from('user_ramadan_fasting')
-          .insert({ user_id: user.id, day_number: dayNumber, has_fasted: hasFasted, date: new Date().toISOString().split('T')[0] });
-        if (error) throw error;
+  useEffect(() => {
+    setJoursJeunes(fastingData.map(f => f.day_number));
+  }, [fastingData]);
+
+  const handleClickJour = async (dayNumber: number) => {
+    if (!user?.id) return;
+    const dejaJeune = joursJeunes.includes(dayNumber);
+
+    if (dejaJeune) {
+      // Optimistic remove
+      setJoursJeunes(prev => prev.filter(d => d !== dayNumber));
+      const { error } = await supabase
+        .from('user_ramadan_fasting')
+        .delete()
+        .eq('user_id', user.id)
+        .eq('day_number', dayNumber);
+      if (error) {
+        toast.error('Erreur: ' + error.message);
+        setJoursJeunes(prev => [...prev, dayNumber]);
+        return;
       }
-    },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['ramadan-fasting'] }),
-  });
-
-  const isFasted = (dayNumber: number) => {
-    const entry = fastingData.find(f => f.day_number === dayNumber);
-    return entry?.has_fasted === true;
-  };
-
-  const fireStarConfetti = (dayNumber: number) => {
-    const btn = buttonRefs.current.get(dayNumber);
-    if (!btn) return;
-    const rect = btn.getBoundingClientRect();
-    const x = (rect.left + rect.width / 2) / window.innerWidth;
-    const y = (rect.top + rect.height / 2) / window.innerHeight;
-    confetti({
-      particleCount: 30,
-      spread: 50,
-      startVelocity: 20,
-      origin: { x, y },
-      colors: ['#22c55e', '#d4af37', '#10b981', '#fbbf24'],
-      scalar: 0.7,
-      ticks: 60,
-      zIndex: 9999,
-    });
-  };
-
-  const handleToggle = (dayNumber: number) => {
-    const fasted = isFasted(dayNumber);
-    toggleFastingMutation.mutate({ dayNumber, hasFasted: !fasted });
-    if (!fasted) {
-      setGlowingDay(dayNumber);
-      fireStarConfetti(dayNumber);
-      setTimeout(() => setGlowingDay(null), 800);
+    } else {
+      // Optimistic add
+      setJoursJeunes(prev => [...prev, dayNumber]);
+      const { error } = await (supabase as any)
+        .from('user_ramadan_fasting')
+        .upsert({
+          user_id: user.id,
+          day_number: dayNumber,
+          has_fasted: true,
+          date: new Date().toISOString().split('T')[0],
+        }, { onConflict: 'user_id,day_number' });
+      if (error) {
+        toast.error('Erreur: ' + error.message);
+        setJoursJeunes(prev => prev.filter(d => d !== dayNumber));
+        return;
+      }
+      // Confettis
+      confetti({
+        particleCount: 80,
+        spread: 60,
+        origin: { y: 0.7 },
+        colors: ['#f59e0b', '#22c55e', '#3b82f6', '#f97316'],
+        zIndex: 9999,
+      });
     }
+    queryClient.invalidateQueries({ queryKey: ['ramadan-fasting'] });
   };
 
-  const fastedCount = fastingData.filter(f => f.has_fasted).length;
+  const fastedCount = joursJeunes.length;
 
   return (
     <div className="module-card rounded-2xl p-4 space-y-3 animate-fade-in">
@@ -89,29 +85,23 @@ const FastingTracker = () => {
       </div>
       <div className="grid grid-cols-10 gap-1.5">
         {Array.from({ length: 30 }, (_, i) => i + 1).map(day => {
-          const fasted = isFasted(day);
-          const isGlowing = glowingDay === day;
+          const jeune = joursJeunes.includes(day);
           return (
             <button
               key={day}
-              ref={(el) => { if (el) buttonRefs.current.set(day, el); }}
-              onClick={() => handleToggle(day)}
-              className={cn(
-                'relative flex items-center justify-center w-full aspect-square rounded-lg transition-all duration-200 hover:scale-110',
-              )}
-              title={`Jour ${day} - ${fasted ? 'Jeûné ✓' : 'Cliquer pour marquer'}`}
+              onClick={() => handleClickJour(day)}
+              className="relative flex flex-col items-center justify-center w-full aspect-square transition-all active:scale-90"
             >
-              <Star
-                className={cn(
-                  'h-5 w-5 sm:h-6 sm:w-6 transition-all duration-300',
-                  fasted && 'text-green-500 fill-green-500 drop-shadow-[0_0_4px_rgba(34,197,94,0.6)] [stroke:hsl(45,93%,47%)] [stroke-width:1.5]',
-                  !fasted && 'text-gray-300 fill-gray-200',
-                  isGlowing && 'animate-pulse scale-125 drop-shadow-[0_0_10px_rgba(34,197,94,0.8)]',
-                )}
-              />
+              <span style={{
+                fontSize: '20px',
+                filter: jeune ? 'none' : 'grayscale(100%) opacity(0.4)',
+                transition: 'filter 0.2s',
+              }}>
+                ⭐
+              </span>
               <span className={cn(
-                "absolute text-[7px] font-bold",
-                fasted ? 'text-white' : 'text-gray-500',
+                "text-[9px] font-bold",
+                jeune ? 'text-amber-500' : 'text-muted-foreground',
               )}>{day}</span>
             </button>
           );
@@ -119,11 +109,11 @@ const FastingTracker = () => {
       </div>
       <div className="flex flex-wrap gap-3 justify-center text-[10px] text-muted-foreground">
         <div className="flex items-center gap-1">
-          <Star className="h-3 w-3 text-green-500 fill-green-500 [stroke:hsl(45,93%,47%)] [stroke-width:1.5]" />
+          <span style={{ fontSize: '12px' }}>⭐</span>
           <span>Jeûné</span>
         </div>
         <div className="flex items-center gap-1">
-          <Star className="h-3 w-3 text-gray-300 fill-gray-200" />
+          <span style={{ fontSize: '12px', filter: 'grayscale(100%) opacity(0.4)' }}>⭐</span>
           <span>À marquer</span>
         </div>
       </div>
