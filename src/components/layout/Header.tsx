@@ -32,6 +32,18 @@ const Header = ({
   const pendingCounts = useAdminPendingCounts();
   const monitoringErrors = useMonitoringErrorCount();
 
+  // Auto-open messaging from URL param ?open=messages
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    if (params.get('open') === 'messages') {
+      clearNewMessageFlag();
+      setShowMessaging(true);
+      // Clean URL
+      const newUrl = location.pathname;
+      window.history.replaceState({}, '', newUrl);
+    }
+  }, [location.search]);
+
   const handleOpenMessaging = () => {
     clearNewMessageFlag();
     setShowMessaging(true);

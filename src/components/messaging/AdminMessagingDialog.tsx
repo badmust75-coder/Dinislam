@@ -340,7 +340,7 @@ const AdminMessagingDialog = ({ open, onOpenChange, onMessagesRead }: AdminMessa
             // Send to specific user IDs
             for (const t of targets) {
               await supabase.functions.invoke('send-push-notification', {
-                body: { title: '📢 Nouveau message du professeur', body: groupMsgText.trim().substring(0, 200), type: 'user', userId: t.user_id },
+                body: { title: '📢 Nouveau message du professeur', body: groupMsgText.trim().substring(0, 200), type: 'user', userId: t.user_id, data: { url: '/?open=messages' } },
               });
             }
           }
