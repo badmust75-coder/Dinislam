@@ -209,6 +209,7 @@ const AdminSourateContent = () => {
                   </div>
                 )}
                 {sourateContents.length === 0 && <p className="text-xs text-muted-foreground italic">Aucun contenu</p>}
+                <AdminSourateVersets sourate={sourate} />
                 <ContentUploadTabs
                   onUploadFile={(file) => uploadToStorage(sourate.id, file, 'fichier')}
                   onAddYoutubeLink={(url) => handleAddYoutube(sourate.id, url)}
