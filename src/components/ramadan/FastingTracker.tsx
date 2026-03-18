@@ -33,38 +33,36 @@ const FastingTracker = () => {
     const dejaJeune = joursJeunes.includes(dayNumber);
 
     if (dejaJeune) {
+      // Delete by user_id + day_number
+      const { error } = await supabase
+        .from('user_ramadan_fasting')
+        .delete()
+        .eq('user_id', user.id)
+        .eq('day_number', dayNumber);
+
+      if (error) { toast.error('Erreur suppression: ' + error.message); return; }
       setJoursJeunes(prev => prev.filter(d => d !== dayNumber));
-      const existing = fastingData.find(f => f.day_number === dayNumber);
-      if (existing) {
-        const { error } = await supabase
-          .from('user_ramadan_fasting')
-          .update({ has_fasted: false } as any)
-          .eq('id', existing.id);
-        if (error) {
-          toast.error('Erreur: ' + error.message);
-          setJoursJeunes(prev => [...prev, dayNumber]);
-        }
-      }
       queryClient.invalidateQueries({ queryKey: ['ramadan-fasting'] });
       return;
     }
 
-    // Optimistic add
-    setJoursJeunes(prev => [...prev, dayNumber]);
+    // Check if row already exists before inserting
+    const { data: existing, error: checkError } = await supabase
+      .from('user_ramadan_fasting')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('day_number', dayNumber)
+      .maybeSingle();
 
-    const existing = fastingData.find(f => f.day_number === dayNumber);
+    if (checkError) { toast.error('Erreur: ' + checkError.message); return; }
+
     if (existing) {
-      const { error } = await supabase
+      await supabase
         .from('user_ramadan_fasting')
         .update({ has_fasted: true } as any)
         .eq('id', existing.id);
-      if (error) {
-        toast.error('Erreur: ' + error.message);
-        setJoursJeunes(prev => prev.filter(d => d !== dayNumber));
-        return;
-      }
     } else {
-      const { error } = await (supabase as any)
+      const { error: insertError } = await (supabase as any)
         .from('user_ramadan_fasting')
         .insert({
           user_id: user.id,
@@ -72,12 +70,14 @@ const FastingTracker = () => {
           has_fasted: true,
           date: new Date().toISOString().split('T')[0],
         });
-      if (error) {
-        toast.error('Erreur: ' + error.message);
-        setJoursJeunes(prev => prev.filter(d => d !== dayNumber));
+
+      if (insertError) {
+        toast.error('Erreur insert: ' + insertError.message);
         return;
       }
     }
+
+    setJoursJeunes(prev => [...prev, dayNumber]);
 
     // Confettis
     const confetti = (await import('canvas-confetti')).default;
