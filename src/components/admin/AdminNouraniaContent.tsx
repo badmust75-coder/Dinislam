@@ -162,35 +162,8 @@ const AdminNouraniaContent = () => {
                   <p className="font-bold">Leçon {lesson.lesson_number}</p>
                   <p className="text-sm text-muted-foreground">{lesson.title_french}</p>
                 </div>
-                {/* Admin comment */}
-                <div className="space-y-1.5">
-                  <label className="text-sm font-semibold text-muted-foreground block">
-                    💬 Commentaire pour les élèves
-                  </label>
-                  <Textarea
-                    placeholder="Ex: Faites attention à la prononciation de cette lettre..."
-                    value={commentaires[lesson.id] ?? (lesson as any).commentaire_admin ?? COMMENTAIRE_DEFAULT}
-                    onChange={e => setCommentaires(prev => ({ ...prev, [lesson.id]: e.target.value }))}
-                    rows={2}
-                    className="text-sm"
-                  />
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="text-xs"
-                    onClick={async () => {
-                      const val = commentaires[lesson.id] ?? (lesson as any).commentaire_admin ?? '';
-                      const { error } = await (supabase as any).from('nourania_lessons').update({ commentaire_admin: val }).eq('id', lesson.id);
-                      if (error) toast.error('Erreur: ' + error.message);
-                      else {
-                        toast.success('Commentaire sauvegardé ✅');
-                        queryClient.invalidateQueries({ queryKey: ['admin-nourania-lessons'] });
-                      }
-                    }}
-                  >
-                    Sauvegarder le commentaire
-                  </Button>
-                </div>
+                {/* Per-student comments */}
+                <AdminCommentaireLecon leconId={lesson.id} />
                 {lessonContents.length > 0 && (
                   <div className="space-y-1.5">
                     {lessonContents.map((content) => (
