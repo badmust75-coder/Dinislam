@@ -25,7 +25,91 @@ const TYPE_OPTIONS = [
   { value: 'autre', label: '✏️ Autre' },
 ];
 
-const AdminHomework = ({ onBack }: AdminHomeworkProps) => {
+function PlayerAudioAdmin({ audioUrl }: { audioUrl: string }) {
+  const [playing, setPlaying] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [duree, setDuree] = useState(0);
+  const [temps, setTemps] = useState(0);
+  const [erreur, setErreur] = useState('');
+  const audioRef = useRef<HTMLAudioElement>(null);
+
+  const togglePlay = async () => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    try {
+      if (playing) {
+        audio.pause();
+        setPlaying(false);
+      } else {
+        audio.src = audioUrl;
+        audio.load();
+        const p = audio.play();
+        if (p !== undefined) { await p; setPlaying(true); }
+      }
+    } catch (e: any) {
+      console.error('Play error:', e);
+      setErreur(e.message);
+      window.open(audioUrl, '_blank');
+    }
+  };
+
+  return (
+    <div className="rounded-xl p-3 mb-2 bg-green-50 border border-green-300">
+      <audio
+        ref={audioRef}
+        src={audioUrl}
+        crossOrigin="anonymous"
+        onTimeUpdate={() => {
+          const a = audioRef.current;
+          if (!a) return;
+          setTemps(a.currentTime);
+          setProgress(a.duration ? (a.currentTime / a.duration) * 100 : 0);
+        }}
+        onLoadedMetadata={() => { if (audioRef.current) setDuree(audioRef.current.duration); }}
+        onEnded={() => setPlaying(false)}
+        onError={() => { setErreur('Erreur audio'); setPlaying(false); }}
+      />
+      {erreur && <p className="text-destructive text-xs mb-1">⚠️ {erreur}</p>}
+      <div className="flex items-center gap-2">
+        <button onClick={togglePlay}
+          className="w-9 h-9 rounded-full flex items-center justify-center text-white flex-shrink-0 bg-green-500">
+          {playing ? (
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="white">
+              <rect x="5" y="3" width="4" height="18" rx="1"/><rect x="15" y="3" width="4" height="18" rx="1"/>
+            </svg>
+          ) : (
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="white">
+              <polygon points="6,3 20,12 6,21"/>
+            </svg>
+          )}
+        </button>
+        <div className="flex-1">
+          <div className="w-full h-2 rounded-full bg-muted cursor-pointer mb-1"
+            onClick={e => {
+              const a = audioRef.current;
+              if (!a || !duree) return;
+              const rect = e.currentTarget.getBoundingClientRect();
+              a.currentTime = ((e.clientX - rect.left) / rect.width) * duree;
+            }}>
+            <div className="h-2 rounded-full bg-green-500" style={{ width: `${progress}%` }} />
+          </div>
+          <div className="flex justify-between text-xs text-muted-foreground">
+            <span>{Math.floor(temps / 60)}:{String(Math.floor(temps % 60)).padStart(2, '0')}</span>
+            <span>{Math.floor(duree / 60)}:{String(Math.floor(duree % 60)).padStart(2, '0')}</span>
+          </div>
+        </div>
+        <a href={audioUrl} target="_blank" rel="noopener noreferrer"
+          className="w-8 h-8 rounded-lg flex items-center justify-center bg-blue-100"
+          title="Ouvrir dans un nouvel onglet">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="#0284c7">
+            <path d="M12 16l-4-4h3V4h2v8h3l-4 4z"/><path d="M20 18H4v2h16v-2z"/>
+          </svg>
+        </a>
+      </div>
+    </div>
+  );
+}
+
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [showForm, setShowForm] = useState(false);
