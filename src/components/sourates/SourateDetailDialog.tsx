@@ -1,13 +1,137 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Progress } from '@/components/ui/progress';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Check, BookOpen, FileText, File, Volume2 } from 'lucide-react';
+import { Check, BookOpen, FileText, File } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useQuranVerses } from '@/hooks/useQuranVerses';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
+
+function LecteurVerset({ audioUrl }: { audioUrl: string }) {
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const [playing, setPlaying] = useState(false);
+  const [vitesse, setVitesse] = useState(1);
+  const [progress, setProgress] = useState(0);
+  const [duree, setDuree] = useState(0);
+  const [temps, setTemps] = useState(0);
+  const VITESSES = [0.5, 1, 1.5, 2];
+
+  const formatTemps = (s: number) => {
+    if (isNaN(s)) return '0:00';
+    const m = Math.floor(s / 60);
+    const sec = Math.floor(s % 60);
+    return `${m}:${sec.toString().padStart(2, '0')}`;
+  };
+
+  const togglePlay = async () => {
+    if (!audioRef.current) return;
+    if (playing) {
+      audioRef.current.pause();
+      setPlaying(false);
+    } else {
+      try {
+        await audioRef.current.play();
+        setPlaying(true);
+      } catch (e) {
+        toast.error("Impossible de lire l'audio");
+      }
+    }
+  };
+
+  const changerVitesse = (v: number) => {
+    if (!audioRef.current) return;
+    audioRef.current.playbackRate = v;
+    setVitesse(v);
+  };
+
+  const handleTimeUpdate = () => {
+    if (!audioRef.current) return;
+    setTemps(audioRef.current.currentTime);
+    const pct = audioRef.current.duration
+      ? (audioRef.current.currentTime / audioRef.current.duration) * 100
+      : 0;
+    setProgress(pct);
+  };
+
+  const handleLoadedMetadata = () => {
+    if (audioRef.current) setDuree(audioRef.current.duration);
+  };
+
+  const handleEnded = () => setPlaying(false);
+
+  const handleProgressClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!audioRef.current || !duree) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const pct = (e.clientX - rect.left) / rect.width;
+    audioRef.current.currentTime = pct * duree;
+  };
+
+  return (
+    <div className="rounded-xl p-3 mt-2"
+      style={{ backgroundColor: '#fef3c7', border: '1px solid #fde68a' }}>
+      <audio
+        ref={audioRef}
+        src={audioUrl}
+        onTimeUpdate={handleTimeUpdate}
+        onLoadedMetadata={handleLoadedMetadata}
+        onEnded={handleEnded}
+        preload="metadata"
+      />
+      <div className="flex items-center gap-2 mb-2">
+        <button
+          onClick={togglePlay}
+          className="w-9 h-9 rounded-full flex items-center justify-center text-white flex-shrink-0 shadow-sm active:scale-95"
+          style={{ backgroundColor: '#f59e0b' }}
+        >
+          {playing ? (
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="white">
+              <rect x="5" y="3" width="4" height="18" rx="1"/>
+              <rect x="15" y="3" width="4" height="18" rx="1"/>
+            </svg>
+          ) : (
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="white">
+              <polygon points="6,3 20,12 6,21"/>
+            </svg>
+          )}
+        </button>
+        <div className="flex-1 flex flex-col gap-1">
+          <div
+            className="w-full h-2 rounded-full cursor-pointer"
+            style={{ backgroundColor: '#e5e7eb' }}
+            onClick={handleProgressClick}
+          >
+            <div
+              className="h-2 rounded-full transition-all"
+              style={{ width: `${progress}%`, backgroundColor: '#f59e0b' }}
+            />
+          </div>
+          <div className="flex justify-between text-xs text-gray-400">
+            <span>{formatTemps(temps)}</span>
+            <span>{formatTemps(duree)}</span>
+          </div>
+        </div>
+      </div>
+      <div className="flex justify-end gap-1">
+        {VITESSES.map(v => (
+          <button
+            key={v}
+            onClick={() => changerVitesse(v)}
+            className="px-2.5 py-1 rounded-lg text-xs font-bold transition-all active:scale-95"
+            style={{
+              backgroundColor: vitesse === v ? '#f59e0b' : '#ffffff',
+              color: vitesse === v ? '#ffffff' : '#9ca3af',
+              border: `1px solid ${vitesse === v ? '#f59e0b' : '#e5e7eb'}`
+            }}
+          >
+            ×{v}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 interface SourateDetailDialogProps {
   open: boolean;
