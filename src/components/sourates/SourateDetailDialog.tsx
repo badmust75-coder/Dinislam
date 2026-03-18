@@ -1,11 +1,13 @@
+import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Progress } from '@/components/ui/progress';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Check, BookOpen, FileText, File } from 'lucide-react';
+import { Check, BookOpen, FileText, File, Volume2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useQuranVerses } from '@/hooks/useQuranVerses';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { supabase } from '@/integrations/supabase/client';
 
 interface SourateDetailDialogProps {
   open: boolean;
@@ -35,6 +37,18 @@ const SourateDetailDialog = ({
   onVerseToggle,
 }: SourateDetailDialogProps) => {
   const { verses, loading: versesLoading } = useQuranVerses(open ? sourate.number : null);
+  const [versetsAudio, setVersetsAudio] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (open && dbId) {
+      supabase
+        .from('sourate_versets_audio' as any)
+        .select('*')
+        .eq('sourate_id', dbId)
+        .order('verset_number', { ascending: true })
+        .then(({ data }) => setVersetsAudio(data || []));
+    }
+  }, [open, dbId]);
 
   if (!dbId) return null;
 
@@ -136,6 +150,7 @@ const SourateDetailDialog = ({
                 Array.from({ length: sourate.verses_count }, (_, i) => i + 1).map(verseNum => {
                   const isVerseValidated = verseProgress.get(`${dbId}-${verseNum}`) || false;
                   const verseData = verses.find(v => v.id === verseNum);
+                  const verseAudio = versetsAudio.find((a: any) => a.verset_number === verseNum);
                   return (
                     <div
                       key={verseNum}
@@ -173,6 +188,19 @@ const SourateDetailDialog = ({
                           <p className="text-xs text-muted-foreground">
                             {verseData.translation_fr}
                           </p>
+                        )}
+                        {/* Verse audio */}
+                        {verseAudio && (
+                          <div className="flex items-center gap-2 mt-1">
+                            <Volume2 className="h-3 w-3 text-amber-600 dark:text-amber-400 shrink-0" />
+                            <audio
+                              src={verseAudio.audio_url}
+                              controls
+                              preload="none"
+                              className="w-full"
+                              style={{ height: '28px' }}
+                            />
+                          </div>
                         )}
                         {/* Verse number indicator */}
                         <p className={cn(

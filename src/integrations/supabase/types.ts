@@ -1880,6 +1880,44 @@ export type Database = {
           },
         ]
       }
+      sourate_versets_audio: {
+        Row: {
+          audio_url: string
+          created_at: string | null
+          file_path: string | null
+          id: string
+          sourate_id: string | null
+          sourate_number: number
+          verset_number: number
+        }
+        Insert: {
+          audio_url: string
+          created_at?: string | null
+          file_path?: string | null
+          id?: string
+          sourate_id?: string | null
+          sourate_number: number
+          verset_number: number
+        }
+        Update: {
+          audio_url?: string
+          created_at?: string | null
+          file_path?: string | null
+          id?: string
+          sourate_id?: string | null
+          sourate_number?: number
+          verset_number?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sourate_versets_audio_sourate_id_fkey"
+            columns: ["sourate_id"]
+            isOneToOne: false
+            referencedRelation: "sourates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sourates: {
         Row: {
           audio_url: string | null

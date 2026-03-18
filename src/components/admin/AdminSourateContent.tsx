@@ -9,6 +9,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import ConfirmDeleteDialog from '@/components/ui/confirm-delete-dialog';
 import ContentUploadTabs from './ContentUploadTabs';
 import ContentItemCard, { ContentType } from './ContentItemCard';
+import AdminSourateVersets from './AdminSourateVersets';
 
 const AdminSourateContent = () => {
   const { user } = useAuth();
@@ -208,6 +209,7 @@ const AdminSourateContent = () => {
                   </div>
                 )}
                 {sourateContents.length === 0 && <p className="text-xs text-muted-foreground italic">Aucun contenu</p>}
+                <AdminSourateVersets sourate={sourate} />
                 <ContentUploadTabs
                   onUploadFile={(file) => uploadToStorage(sourate.id, file, 'fichier')}
                   onAddYoutubeLink={(url) => handleAddYoutube(sourate.id, url)}
