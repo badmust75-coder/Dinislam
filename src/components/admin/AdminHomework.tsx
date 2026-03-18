@@ -93,28 +93,11 @@ const AdminHomework = ({ onBack }: AdminHomeworkProps) => {
           : Promise.resolve({ data: [] }),
       ]);
 
-      // Generate fresh signed URLs for audio files
-      const enriched = await Promise.all(data.map(async (r) => {
-        let freshAudioUrl = r.audio_url;
-        if (r.audio_url) {
-          const parts = r.audio_url.split('/devoirs-audios/');
-          if (parts.length >= 2) {
-            const filePath = decodeURIComponent(parts[1].split('?')[0]);
-            const { data: signedData } = await supabase.storage
-              .from('devoirs-audios')
-              .createSignedUrl(filePath, 60 * 60 * 24 * 7);
-            if (signedData?.signedUrl) freshAudioUrl = signedData.signedUrl;
-          }
-        }
-        return {
-          ...r,
-          audio_url_fresh: freshAudioUrl,
-          student_name: profiles?.find(p => p.user_id === r.student_id)?.full_name || 'Inconnu',
-          devoir_titre: devoirsList?.find((d: any) => d.id === r.devoir_id)?.titre || '',
-        };
+      return data.map((r) => ({
+        ...r,
+        student_name: profiles?.find(p => p.user_id === r.student_id)?.full_name || 'Inconnu',
+        devoir_titre: devoirsList?.find((d: any) => d.id === r.devoir_id)?.titre || '',
       }));
-
-      return enriched;
     },
   });
 
@@ -425,10 +408,9 @@ const AdminHomework = ({ onBack }: AdminHomeworkProps) => {
                         <p className="text-xs text-muted-foreground mb-2">
                           {new Date(r.rendu_at).toLocaleDateString('fr-FR')}
                         </p>
-                        {(r.audio_url_fresh || r.audio_url) && (
-                          <audio src={r.audio_url_fresh || r.audio_url} controls preload="metadata"
-                            className="w-full mb-2" style={{ height: '36px' }}
-                            onError={(e) => console.error('Audio error for rendu', r.id, e)} />
+                        {r.audio_url && (
+                          <audio src={r.audio_url} controls preload="metadata"
+                            className="w-full mb-2" style={{ height: '36px' }} />
                         )}
                         {r.commentaire_admin && (
                           <p className="text-xs text-destructive bg-destructive/5 rounded-lg p-2 mb-2">
