@@ -1031,6 +1031,7 @@ export type Database = {
       nourania_lessons: {
         Row: {
           audio_url: string | null
+          commentaire_admin: string | null
           created_at: string | null
           description: string | null
           display_order: number | null
@@ -1044,6 +1045,7 @@ export type Database = {
         }
         Insert: {
           audio_url?: string | null
+          commentaire_admin?: string | null
           created_at?: string | null
           description?: string | null
           display_order?: number | null
@@ -1057,6 +1059,7 @@ export type Database = {
         }
         Update: {
           audio_url?: string | null
+          commentaire_admin?: string | null
           created_at?: string | null
           description?: string | null
           display_order?: number | null

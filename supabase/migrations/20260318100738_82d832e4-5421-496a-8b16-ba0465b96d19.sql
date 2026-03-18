@@ -1,0 +1,1 @@
+ALTER TABLE public.nourania_lessons ADD COLUMN IF NOT EXISTS commentaire_admin text;
