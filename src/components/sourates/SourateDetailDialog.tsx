@@ -323,10 +323,6 @@ const SourateDetailDialog = ({
             <LecteurVideoSourate videoUrl={videoUrl} />
           )}
 
-          {/* Vidéo YouTube */}
-          {videoUrl && (
-            <LecteurVideoSourate videoUrl={videoUrl} />
-          )}
 
           {contents.length > 0 && (
             <div className="space-y-2">
