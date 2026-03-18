@@ -1,0 +1,1 @@
+ALTER TABLE sourates ADD COLUMN IF NOT EXISTS video_url text;

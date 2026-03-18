@@ -1931,6 +1931,7 @@ export type Database = {
           name_french: string
           number: number
           verses_count: number | null
+          video_url: string | null
         }
         Insert: {
           audio_complet_path?: string | null
@@ -1944,6 +1945,7 @@ export type Database = {
           name_french: string
           number: number
           verses_count?: number | null
+          video_url?: string | null
         }
         Update: {
           audio_complet_path?: string | null
@@ -1957,6 +1959,7 @@ export type Database = {
           name_french?: string
           number?: number
           verses_count?: number | null
+          video_url?: string | null
         }
         Relationships: []
       }
