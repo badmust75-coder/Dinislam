@@ -9,6 +9,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import ConfirmDeleteDialog from '@/components/ui/confirm-delete-dialog';
 import ContentUploadTabs from './ContentUploadTabs';
 import ContentItemCard, { ContentType } from './ContentItemCard';
+import AdminSourateVersets from './AdminSourateVersets';
 
 const AdminSourateContent = () => {
   const { user } = useAuth();
