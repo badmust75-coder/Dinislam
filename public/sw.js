@@ -1,4 +1,4 @@
-const CACHE_NAME = 'dini-bismillah-v6';
+const CACHE_NAME = 'dini-bismillah-v7';
 
 self.addEventListener('install', () => {
   self.skipWaiting();
@@ -89,10 +89,26 @@ self.addEventListener('push', function(event) {
   );
 });
 
-// Notification click handler
+// Notification click handler — navigate to the URL from notification data
 self.addEventListener('notificationclick', function(event) {
   event.notification.close();
+
+  const url = event.notification.data?.url || '/';
+  const fullUrl = 'https://dinislam.lovable.app' + url;
+
   event.waitUntil(
-    clients.openWindow(event.notification.data?.url || 'https://dinislam.lovable.app')
+    clients.matchAll({ type: 'window', includeUncontrolled: true })
+      .then(clientList => {
+        for (const client of clientList) {
+          if (client.url.includes('dinislam.lovable.app') && 'focus' in client) {
+            client.focus();
+            client.postMessage({ type: 'NAVIGATE', url });
+            return;
+          }
+        }
+        if (clients.openWindow) {
+          return clients.openWindow(fullUrl);
+        }
+      })
   );
 });

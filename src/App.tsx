@@ -54,6 +54,7 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 };
 
 const AppRoutes = () => {
+  useSwNavigate();
   return (
       <Routes>
         <Route path="/auth" element={<Auth />} />

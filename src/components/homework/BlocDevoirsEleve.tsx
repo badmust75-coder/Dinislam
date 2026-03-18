@@ -328,6 +328,7 @@ export default function BlocDevoirsEleve() {
         userIds: adminIds,
         title: '📚 Devoir rendu',
         body: `${user.user_metadata?.full_name || 'Un élève'} a rendu : ${devoir?.titre || 'un devoir'}`,
+        data: { url: '/admin?section=cahier-texte' },
       });
     }
 

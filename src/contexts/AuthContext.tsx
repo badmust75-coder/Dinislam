@@ -173,7 +173,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (dateOfBirth) { updateData.date_of_birth = dateOfBirth; updateData.dob_set_by_user = true; }
         await supabase.from('profiles').update(updateData).eq('user_id', newUser.id);
         supabase.functions.invoke('send-push-notification', {
-          body: { title: '📝 Nouvelle inscription', body: `${fullName || email} demande à rejoindre l'application.`, type: 'admin' },
+          body: { title: '📝 Nouvelle inscription', body: `${fullName || email} demande à rejoindre l'application.`, type: 'admin', data: { url: '/admin?section=users' } },
         }).catch(err => console.error('Push notification error:', err));
       }
 
