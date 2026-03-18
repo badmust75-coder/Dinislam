@@ -432,8 +432,7 @@ const AdminHomework = ({ onBack }: AdminHomeworkProps) => {
                           {new Date(r.rendu_at).toLocaleDateString('fr-FR')}
                         </p>
                         {r.audio_url && (
-                          <audio src={r.audio_url} controls preload="metadata"
-                            className="w-full mb-2" style={{ height: '36px' }} />
+                          <PlayerAudioAdmin audioUrl={r.audio_url} />
                         )}
                         {r.commentaire_admin && (
                           <p className="text-xs text-destructive bg-destructive/5 rounded-lg p-2 mb-2">
