@@ -107,19 +107,17 @@ const FastingTracker = () => {
             <button
               key={day}
               onClick={() => handleClickJour(day)}
-              className="flex flex-col items-center justify-center w-8 h-8 rounded-lg transition-all active:scale-90"
-              style={{
-                backgroundColor: jeune ? '#22c55e' : '#f3f4f6',
-              }}
+              className="relative flex items-center justify-center w-8 h-8 transition-all active:scale-90"
               title={`Jour ${day} - ${jeune ? 'Jeûné ✓' : 'Cliquer pour marquer'}`}
             >
-              <span style={{ fontSize: '14px' }}>
+              <span style={{ fontSize: '22px', lineHeight: 1 }}>
                 {jeune ? '⭐' : '☆'}
               </span>
-              <span style={{
-                fontSize: '9px',
+              <span className="absolute inset-0 flex items-center justify-center" style={{
+                fontSize: '8px',
                 fontWeight: 'bold',
-                color: jeune ? '#ffffff' : '#111827',
+                color: jeune ? '#ffffff' : '#6b7280',
+                paddingBottom: jeune ? '1px' : '0px',
               }}>
                 {day}
               </span>
