@@ -1,9 +1,9 @@
 import { useState, useMemo } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Plus } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format, parseISO } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -16,19 +16,16 @@ interface AdminAttendanceProps {
 
 type AttendanceStatus = 'present' | 'absent' | 'late';
 
-const STATUS_CYCLE: AttendanceStatus[] = ['present', 'absent', 'late'];
-
-const STATUS_DISPLAY: Record<AttendanceStatus, { emoji: string; color: string; label: string }> = {
-  present: { emoji: '🟢', color: 'bg-green-500', label: 'Présent' },
-  absent: { emoji: '🔴', color: 'bg-red-500', label: 'Absent' },
-  late: { emoji: '🟡', color: 'bg-yellow-400', label: 'En retard' },
+const STATUS_DISPLAY: Record<AttendanceStatus, { color: string; label: string }> = {
+  present: { color: '#22c55e', label: 'Présent' },
+  absent: { color: '#ef4444', label: 'Absent' },
+  late: { color: '#f59e0b', label: 'En retard' },
 };
 
 const AdminAttendance = ({ onBack }: AdminAttendanceProps) => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
-  // Fetch approved students
   const { data: students = [] } = useQuery({
     queryKey: ['attendance-students'],
     queryFn: async () => {
@@ -42,8 +39,7 @@ const AdminAttendance = ({ onBack }: AdminAttendanceProps) => {
     },
   });
 
-  // Fetch all attendance records
-  const { data: records = [] } = useQuery({
+  const { data: records = [], refetch: refetchRecords } = useQuery({
     queryKey: ['attendance-records'],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -55,13 +51,11 @@ const AdminAttendance = ({ onBack }: AdminAttendanceProps) => {
     },
   });
 
-  // Get unique dates sorted
   const dates = useMemo(() => {
     const dateSet = new Set(records.map(r => r.date));
     return Array.from(dateSet).sort();
   }, [records]);
 
-  // Build lookup map: `${userId}-${date}` -> record
   const recordMap = useMemo(() => {
     const map = new Map<string, { id: string; status: AttendanceStatus }>();
     records.forEach(r => {
@@ -70,60 +64,90 @@ const AdminAttendance = ({ onBack }: AdminAttendanceProps) => {
     return map;
   }, [records]);
 
-  // Add today's date column
   const addToday = async () => {
     const today = format(new Date(), 'yyyy-MM-dd');
     if (dates.includes(today)) {
-      toast.info('La date d\'aujourd\'hui existe déjà');
+      toast.info("La date d'aujourd'hui existe déjà");
       return;
     }
-    // Insert a record for the first student to create the column
     if (students.length > 0) {
       const { error } = await supabase.from('attendance_records').insert({
         user_id: students[0].user_id,
         date: today,
         status: 'present',
-        recorded_by: user?.id,
+        marked_by: user?.id,
       });
       if (error && !error.message.includes('duplicate')) {
         toast.error('Erreur: ' + error.message);
         return;
       }
     }
-    queryClient.invalidateQueries({ queryKey: ['attendance-records'] });
-    toast.success('Date du jour ajoutée');
+    refetchRecords();
+    queryClient.invalidateQueries({ queryKey: ['all-attendance'] });
+    toast.success('Séance du jour ajoutée');
   };
 
-  // Toggle attendance status
-  const toggleMutation = useMutation({
-    mutationFn: async ({ userId, date, currentStatus }: { userId: string; date: string; currentStatus?: AttendanceStatus }) => {
-      if (!currentStatus) {
-        // Create new record
-        const { error } = await supabase.from('attendance_records').insert({
-          user_id: userId,
-          date,
-          status: 'present',
-          recorded_by: user?.id,
-        });
-        if (error) throw error;
-      } else {
-        // Cycle to next status
-        const nextIdx = (STATUS_CYCLE.indexOf(currentStatus) + 1) % STATUS_CYCLE.length;
-        const nextStatus = STATUS_CYCLE[nextIdx];
-        const record = recordMap.get(`${userId}-${date}`);
-        if (record) {
-          const { error } = await supabase.from('attendance_records')
-            .update({ status: nextStatus })
-            .eq('id', record.id);
-          if (error) throw error;
+  const deleteDate = async (date: string) => {
+    const { error } = await supabase
+      .from('attendance_records')
+      .delete()
+      .eq('date', date);
+    if (error) {
+      toast.error('Erreur: ' + error.message);
+      return;
+    }
+    refetchRecords();
+    queryClient.invalidateQueries({ queryKey: ['all-attendance'] });
+    toast.success('Séance supprimée');
+  };
+
+  const handleClickPresence = async (userId: string, date: string, currentStatus?: AttendanceStatus) => {
+    const cycle: Record<string, AttendanceStatus | null> = {
+      present: 'absent',
+      absent: 'late',
+      late: null,
+    };
+
+    if (!currentStatus) {
+      // Empty → Present
+      const { error } = await supabase.from('attendance_records').insert({
+        user_id: userId,
+        date,
+        status: 'present',
+        marked_by: user?.id,
+      });
+      if (error) {
+        toast.error(error.message);
+        return;
+      }
+    } else {
+      const nextStatus = cycle[currentStatus] ?? null;
+      const record = recordMap.get(`${userId}-${date}`);
+      if (nextStatus === null && record) {
+        // Late → Delete
+        const { error } = await supabase
+          .from('attendance_records')
+          .delete()
+          .eq('id', record.id);
+        if (error) {
+          toast.error(error.message);
+          return;
+        }
+      } else if (record && nextStatus) {
+        // Cycle to next
+        const { error } = await supabase
+          .from('attendance_records')
+          .update({ status: nextStatus })
+          .eq('id', record.id);
+        if (error) {
+          toast.error(error.message);
+          return;
         }
       }
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['attendance-records'] });
-    },
-    onError: (err: any) => toast.error(err.message),
-  });
+    }
+    refetchRecords();
+    queryClient.invalidateQueries({ queryKey: ['all-attendance'] });
+  };
 
   return (
     <div className="space-y-4">
@@ -134,29 +158,36 @@ const AdminAttendance = ({ onBack }: AdminAttendanceProps) => {
         <h2 className="text-xl font-bold text-foreground">📋 Registre de Présence</h2>
       </div>
 
-      {/* Legend */}
+      {/* Légende */}
       <div className="flex items-center gap-4 text-sm text-muted-foreground">
         {Object.entries(STATUS_DISPLAY).map(([key, val]) => (
           <span key={key} className="flex items-center gap-1">
-            <span className={cn('w-4 h-4 rounded-full inline-block', val.color)} />
+            <span className="w-4 h-4 rounded-full inline-block" style={{ backgroundColor: val.color }} />
             {val.label}
           </span>
         ))}
       </div>
 
-      {/* Attendance Grid */}
+      {/* Tableau */}
       <div className="bg-card rounded-2xl border border-border shadow-card overflow-hidden">
         <ScrollArea className="w-full">
           <div className="min-w-max">
-            {/* Header row */}
+            {/* Header */}
             <div className="flex border-b border-border bg-muted/30">
               <div className="w-48 shrink-0 px-4 py-3 font-semibold text-foreground text-sm sticky left-0 bg-muted/30 z-10">
                 Élève
               </div>
               {dates.map(date => (
-                <div key={date} className="w-20 shrink-0 text-center py-3 text-xs text-muted-foreground border-l border-border">
+                <div key={date} className="w-20 shrink-0 text-center py-2 text-xs text-muted-foreground border-l border-border">
                   <div className="font-semibold">{format(parseISO(date), 'EEE', { locale: fr })}</div>
                   <div>{format(parseISO(date), 'dd/MM', { locale: fr })}</div>
+                  <button
+                    onClick={() => deleteDate(date)}
+                    className="mt-1 text-destructive hover:text-destructive/80 transition-colors"
+                    title="Supprimer cette séance"
+                  >
+                    <Trash2 className="h-3 w-3 mx-auto" />
+                  </button>
                 </div>
               ))}
               <div className="w-16 shrink-0 flex items-center justify-center border-l border-border">
@@ -166,7 +197,7 @@ const AdminAttendance = ({ onBack }: AdminAttendanceProps) => {
               </div>
             </div>
 
-            {/* Student rows */}
+            {/* Rows */}
             {students.map((student, idx) => (
               <div
                 key={student.user_id}
@@ -180,21 +211,21 @@ const AdminAttendance = ({ onBack }: AdminAttendanceProps) => {
                   {student.full_name || student.email || 'Sans nom'}
                 </div>
                 {dates.map(date => {
-                  const key = `${student.user_id}-${date}`;
-                  const record = recordMap.get(key);
-                  const status = record?.status as AttendanceStatus | undefined;
+                  const record = recordMap.get(`${student.user_id}-${date}`);
+                  const status = record?.status;
                   const display = status ? STATUS_DISPLAY[status] : null;
 
                   return (
                     <div
                       key={date}
                       className="w-20 shrink-0 flex items-center justify-center border-l border-border cursor-pointer hover:bg-muted/30 transition-colors"
-                      onClick={() => toggleMutation.mutate({ userId: student.user_id, date, currentStatus: status })}
+                      onClick={() => handleClickPresence(student.user_id, date, status)}
                     >
                       {display ? (
-                        <div className={cn('w-7 h-7 rounded-full flex items-center justify-center', display.color)}>
-                          {status === 'late' && <span className="text-[10px] font-bold text-foreground">R</span>}
-                        </div>
+                        <div
+                          className="w-7 h-7 rounded-full"
+                          style={{ backgroundColor: display.color }}
+                        />
                       ) : (
                         <div className="w-7 h-7 rounded-full border-2 border-dashed border-muted-foreground/30" />
                       )}
@@ -215,21 +246,27 @@ const AdminAttendance = ({ onBack }: AdminAttendanceProps) => {
         </ScrollArea>
       </div>
 
-      {/* Summary stats */}
+      {/* Résumé */}
       {dates.length > 0 && (
         <div className="bg-card rounded-2xl border border-border shadow-card p-4">
           <h3 className="font-semibold text-foreground mb-3">📊 Résumé</h3>
           <div className="grid grid-cols-3 gap-3 text-center">
             <div>
-              <div className="text-2xl font-bold text-green-600">{records.filter(r => r.status === 'present').length}</div>
+              <div className="text-2xl font-bold" style={{ color: '#22c55e' }}>
+                {records.filter(r => r.status === 'present').length}
+              </div>
               <p className="text-xs text-muted-foreground">Présences</p>
             </div>
             <div>
-              <div className="text-2xl font-bold text-red-600">{records.filter(r => r.status === 'absent').length}</div>
+              <div className="text-2xl font-bold" style={{ color: '#ef4444' }}>
+                {records.filter(r => r.status === 'absent').length}
+              </div>
               <p className="text-xs text-muted-foreground">Absences</p>
             </div>
             <div>
-              <div className="text-2xl font-bold text-yellow-600">{records.filter(r => r.status === 'late').length}</div>
+              <div className="text-2xl font-bold" style={{ color: '#f59e0b' }}>
+                {records.filter(r => r.status === 'late').length}
+              </div>
               <p className="text-xs text-muted-foreground">Retards</p>
             </div>
           </div>
