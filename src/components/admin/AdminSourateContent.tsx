@@ -11,6 +11,133 @@ import ContentUploadTabs from './ContentUploadTabs';
 import ContentItemCard, { ContentType } from './ContentItemCard';
 import AdminSourateVersets from './AdminSourateVersets';
 
+function SourateAdminCard({ sourate, sourateContents, mapContentType, setDeleteContentId, updateTitleMutation, deleteMutation, uploadToStorage, handleAddYoutube, handleUploadAudioComplet, handleDeleteAudioComplet, chargerSourates, isUploading }: any) {
+  const [lienVideo, setLienVideo] = useState(sourate.video_url || '');
+
+  const extraireYoutubeId = (url: string) => {
+    const match = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&\n?#]+)/);
+    return match ? match[1] : null;
+  };
+
+  const sauvegarderVideo = async (sourateId: string) => {
+    const videoId = extraireYoutubeId(lienVideo);
+    if (!videoId && lienVideo) {
+      toast.error('Lien YouTube invalide');
+      return;
+    }
+    const embedUrl = videoId ? `https://www.youtube.com/embed/${videoId}` : null;
+    const { error } = await supabase.from('sourates').update({ video_url: embedUrl } as any).eq('id', sourateId);
+    if (error) { toast.error('Erreur: ' + error.message); return; }
+    toast.success('✅ Vidéo sauvegardée');
+    chargerSourates();
+  };
+
+  return (
+    <Card key={sourate.id}>
+      <CardContent className="p-4 space-y-3">
+        <div>
+          <p className="font-bold">{sourate.number}. {sourate.name_french}</p>
+          <p className="text-sm text-muted-foreground font-arabic">{sourate.name_arabic}</p>
+        </div>
+        {/* Vidéo YouTube */}
+        <div className="bg-blue-50 dark:bg-blue-950/30 rounded-xl p-3 border border-blue-200 dark:border-blue-800">
+          <p className="text-sm font-semibold text-blue-800 dark:text-blue-300 mb-2">
+            🎬 Vidéo de la sourate (YouTube)
+          </p>
+          <input
+            placeholder="https://www.youtube.com/watch?v=..."
+            value={lienVideo}
+            onChange={e => setLienVideo(e.target.value)}
+            className="w-full border rounded-xl p-2 text-sm mb-2 bg-background"
+          />
+          <button
+            onClick={() => sauvegarderVideo(sourate.id)}
+            className="w-full py-2 rounded-xl text-white text-sm font-semibold"
+            style={{ backgroundColor: '#3b82f6' }}
+          >
+            💾 Sauvegarder
+          </button>
+          {sourate.video_url && (
+            <button
+              onClick={async () => {
+                await supabase.from('sourates').update({ video_url: null } as any).eq('id', sourate.id);
+                setLienVideo('');
+                chargerSourates();
+              }}
+              className="w-full py-2 rounded-xl text-sm font-semibold mt-1"
+              style={{ backgroundColor: '#fee2e2', color: '#ef4444' }}
+            >
+              🗑️ Supprimer la vidéo
+            </button>
+          )}
+        </div>
+        {/* Audio complet */}
+        <div className="bg-blue-50 dark:bg-blue-950/30 rounded-xl p-3 border border-blue-200 dark:border-blue-800">
+          <p className="text-sm font-semibold text-blue-800 dark:text-blue-300 mb-2">
+            🎵 Audio complet de la sourate
+          </p>
+          {(sourate as any).audio_complet_url ? (
+            <div className="flex items-center gap-2">
+              <audio src={(sourate as any).audio_complet_url} controls className="flex-1" style={{ height: '32px' }} />
+              <button
+                onClick={() => handleDeleteAudioComplet(sourate.id, (sourate as any).audio_complet_path)}
+                className="w-8 h-8 rounded-lg flex items-center justify-center"
+                style={{ backgroundColor: '#fee2e2' }}
+              >
+                <Trash2 className="w-3 h-3 text-red-500" />
+              </button>
+            </div>
+          ) : (
+            <div>
+              <input
+                type="file" accept="audio/*"
+                className="hidden"
+                id={`audio-complet-${sourate.id}`}
+                onChange={e => {
+                  const file = e.target.files?.[0];
+                  if (file) handleUploadAudioComplet(sourate.id, sourate.number, file);
+                  e.target.value = '';
+                }}
+              />
+              <label htmlFor={`audio-complet-${sourate.id}`}
+                className="flex items-center justify-center gap-2 py-2 px-4 rounded-xl text-white text-sm font-semibold cursor-pointer"
+                style={{ backgroundColor: '#3b82f6' }}
+              >
+                <Upload className="w-4 h-4" />
+                Uploader l'audio complet
+              </label>
+            </div>
+          )}
+        </div>
+        {sourateContents.length > 0 && (
+          <div className="space-y-1.5">
+            {sourateContents.map((content: any) => (
+              <ContentItemCard
+                key={content.id}
+                id={content.id}
+                title={content.file_name}
+                contentType={mapContentType(content.content_type)}
+                url={content.file_url}
+                onDelete={(id: string) => setDeleteContentId(id)}
+                onUpdateTitle={(id: string, title: string) => updateTitleMutation.mutate({ id, title })}
+                deleteDisabled={deleteMutation.isPending}
+              />
+            ))}
+          </div>
+        )}
+        {sourateContents.length === 0 && <p className="text-xs text-muted-foreground italic">Aucun contenu</p>}
+        <AdminSourateVersets sourate={sourate} />
+        <ContentUploadTabs
+          onUploadFile={(file: File) => uploadToStorage(sourate.id, file, 'fichier')}
+          onAddYoutubeLink={(url: string) => handleAddYoutube(sourate.id, url)}
+          onUploadAudio={(file: File) => uploadToStorage(sourate.id, file, 'audio')}
+          isUploading={isUploading}
+        />
+      </CardContent>
+    </Card>
+  );
+}
+
 const AdminSourateContent = () => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
