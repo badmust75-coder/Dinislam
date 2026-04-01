@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useMemo } from 'react';
 import { cn } from '@/lib/utils';
-import { Lock, Check, Gift } from 'lucide-react';
+import { Lock, Check } from 'lucide-react';
 import charGirlReading from '@/assets/char-girl-reading.png';
 import charBoyPraying from '@/assets/char-boy-praying.png';
 import charBoyChapelet from '@/assets/char-boy-chapelet.png';
@@ -34,8 +34,8 @@ const STAR_SIZE = 58;
 const RIBBON_WIDTH = 13;
 const CHARACTER_EVERY_N_TURNS = 3; // show a character every N U-turns
 
-// Milestones at these sourate numbers
-const MILESTONE_NUMBERS = new Set([110, 100, 90, 80, 70, 60, 50, 40, 30, 20, 10]);
+// Gift sourates: Al-Fil (105) then every 5 sourates
+const GIFT_SOURATE_NUMBERS = new Set([105, 100, 95, 90, 85, 80, 75, 70, 65, 60, 55, 50, 45, 40, 35, 30, 25, 20, 15, 10, 5]);
 
 interface SouratePathViewProps {
   sourates: Array<{
@@ -230,7 +230,7 @@ const SouratePathView = ({
         {nodes.map((node, i) => {
           const { isValidated, accessible } = getNodeState(node.sourate.number);
           const isCurrent = i === currentIndex;
-          const isMilestone = MILESTONE_NUMBERS.has(node.sourate.number);
+          const isGift = GIFT_SOURATE_NUMBERS.has(node.sourate.number);
 
           return (
             <div
@@ -243,17 +243,10 @@ const SouratePathView = ({
                 width: STAR_SIZE,
               }}
             >
-              {/* Milestone badge */}
-              {isMilestone && (
+              {/* Gift badge */}
+              {isGift && (
                 <div className="absolute -top-3 left-1/2 -translate-x-1/2 z-10">
-                  <div className={cn(
-                    'w-6 h-6 rounded-md flex items-center justify-center shadow-sm',
-                    isValidated
-                      ? 'bg-gradient-to-br from-yellow-400 to-amber-500'
-                      : 'bg-gradient-to-br from-gray-200 to-gray-300'
-                  )}>
-                    <Gift className={cn('w-3.5 h-3.5', isValidated ? 'text-white' : 'text-gray-400')} />
-                  </div>
+                  <span className="text-lg leading-none drop-shadow-sm">🎁</span>
                 </div>
               )}
 
@@ -287,6 +280,8 @@ const SouratePathView = ({
                     <Check className="w-5 h-5" strokeWidth={3} />
                   ) : !accessible ? (
                     <Lock className="w-3.5 h-3.5" />
+                  ) : node.sourate.number === 1000 ? (
+                    <span className="text-[10px]">📖</span>
                   ) : (
                     node.sourate.number
                   )}

@@ -125,18 +125,28 @@ const SOURATES_DATA = [
   { number: 109, name_arabic: 'الكافرون', name_french: 'Al-Kafirun (Les Infidèles)', verses_count: 6, revelation_type: 'Mecquoise' },
   { number: 110, name_arabic: 'النصر', name_french: 'An-Nasr (Le Secours)', verses_count: 3, revelation_type: 'Médinoise' },
   { number: 111, name_arabic: 'المسد', name_french: 'Al-Masad (Les Fibres)', verses_count: 5, revelation_type: 'Mecquoise' },
+  { number: 1000, name_arabic: 'آية الكرسي', name_french: 'Ayat Al-Kursi (Le Verset du Trône)', verses_count: 1, revelation_type: 'Médinoise' },
   { number: 112, name_arabic: 'الإخلاص', name_french: 'Al-Ikhlas (Le Monothéisme)', verses_count: 4, revelation_type: 'Mecquoise' },
   { number: 113, name_arabic: 'الفلق', name_french: "Al-Falaq (L'Aube Naissante)", verses_count: 5, revelation_type: 'Mecquoise' },
   { number: 114, name_arabic: 'الناس', name_french: 'An-Nas (Les Hommes)', verses_count: 6, revelation_type: 'Mecquoise' },
 ];
 
-// Display order: 114 first, then 113, ..., 1 last
-const SOURATES_ORDERED = [...SOURATES_DATA].sort((a, b) => b.number - a.number);
+// Display order: 114 first, then 113, ..., 1 last, with Ayat Al-Kursi between Al-Ikhlas (112) and Al-Masad (111)
+const SOURATES_ORDERED = (() => {
+  const sorted = [...SOURATES_DATA].filter(s => s.number !== 1000).sort((a, b) => b.number - a.number);
+  const ayatKursi = SOURATES_DATA.find(s => s.number === 1000)!;
+  const idx = sorted.findIndex(s => s.number === 112);
+  sorted.splice(idx + 1, 0, ayatKursi);
+  return sorted;
+})();
+
+// Gift sourates: Al-Fil (105) then every 5 sourates
+const GIFT_SOURATE_NUMBERS = new Set([105, 100, 95, 90, 85, 80, 75, 70, 65, 60, 55, 50, 45, 40, 35, 30, 25, 20, 15, 10, 5]);
 
 const SouratesPage = () => {
   const { user } = useAuth();
   const { toast } = useToast();
-  const { fireSuccess } = useConfetti();
+  const { fireSuccess, fireConfetti } = useConfetti();
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedSourate, setSelectedSourate] = useState<typeof SOURATES_DATA[0] | null>(null);
@@ -229,19 +239,27 @@ const SouratesPage = () => {
             if (id === approvedSourateId) { validatedNumber = num; break; }
           }
           if (validatedNumber) {
-            fireSuccess();
-            const nextNumber = validatedNumber - 1;
-            if (nextNumber >= 1) {
-              const nextSourate = SOURATES_DATA.find(s => s.number === nextNumber);
-              if (nextSourate) {
-                setTimeout(() => {
-                  setUnlockDialog({
-                    open: true,
-                    sourateName: nextSourate.name_french,
-                    sourateNumber: nextNumber,
-                  });
-                }, 1500);
-              }
+            const isGiftSourate = GIFT_SOURATE_NUMBERS.has(validatedNumber);
+            if (isGiftSourate) {
+              fireConfetti();
+              toast({
+                title: '🎁 ما شاء الله ! Félicitations !',
+                description: 'Tu as débloqué une récompense ! Continue comme ça, tu es une étoile ! ⭐',
+              });
+            } else {
+              fireSuccess();
+            }
+            // Find next sourate in ordered list
+            const currentIdx = SOURATES_ORDERED.findIndex(s => s.number === validatedNumber);
+            if (currentIdx >= 0 && currentIdx < SOURATES_ORDERED.length - 1) {
+              const nextSourate = SOURATES_ORDERED[currentIdx + 1];
+              setTimeout(() => {
+                setUnlockDialog({
+                  open: true,
+                  sourateName: nextSourate.name_french,
+                  sourateNumber: nextSourate.number,
+                });
+              }, 1500);
             }
           }
         }
@@ -256,7 +274,10 @@ const SouratesPage = () => {
     if (!dbId) return sourateNumber === 114;
     if (sourateNumber === 114) return true;
     if (adminUnlocks.has(dbId)) return true;
-    const prevNumber = sourateNumber + 1;
+    // Use ordered array position to find previous sourate
+    const idx = SOURATES_ORDERED.findIndex(s => s.number === sourateNumber);
+    if (idx <= 0) return true;
+    const prevNumber = SOURATES_ORDERED[idx - 1].number;
     const prevDbId = dbSourates.get(prevNumber);
     if (!prevDbId) return true;
     const prevProgress = sourateProgress.get(prevDbId);
@@ -375,8 +396,9 @@ const SouratesPage = () => {
       )
     : SOURATES_ORDERED;
 
+  const totalSourates = SOURATES_ORDERED.length;
   const validatedCount = Array.from(sourateProgress.values()).filter(p => p.is_validated).length;
-  const overallProgress = Math.round((validatedCount / 114) * 100);
+  const overallProgress = Math.round((validatedCount / totalSourates) * 100);
 
   return (
     <AppLayout title="Sourates">
@@ -387,7 +409,7 @@ const SouratesPage = () => {
             <div>
               <h3 className="font-bold text-foreground">Ma progression</h3>
               <p className="text-sm text-muted-foreground">
-                {validatedCount} / 114 sourates validées
+                {validatedCount} / {totalSourates} sourates validées
               </p>
             </div>
             <div className="text-3xl font-bold text-gold">{overallProgress}%</div>
@@ -443,7 +465,7 @@ const SouratesPage = () => {
         onOpenChange={(open) => setUnlockDialog(prev => ({ ...prev, open }))}
         onConfirm={() => {
           setUnlockDialog(prev => ({ ...prev, open: false }));
-          const nextSourate = SOURATES_DATA.find(s => s.number === unlockDialog.sourateNumber);
+          const nextSourate = SOURATES_ORDERED.find(s => s.number === unlockDialog.sourateNumber);
           if (nextSourate) setSelectedSourate(nextSourate);
         }}
         sourateName={unlockDialog.sourateName}

@@ -36,6 +36,31 @@ export const useQuranVerses = (sourateNumber: number | null) => {
 
     const fetchVerses = async () => {
       try {
+        // Special case: Ayat Al-Kursi (number 1000) = Surah 2, verse 255
+        if (sourateNumber === 1000) {
+          const AYAH_API = 'https://api.alquran.cloud/v1/ayah';
+          const [arRes, frRes, transRes] = await Promise.all([
+            fetch(`${AYAH_API}/2:255/quran-uthmani`),
+            fetch(`${AYAH_API}/2:255/fr.hamidullah`),
+            fetch(`${AYAH_API}/2:255/en.transliteration`),
+          ]);
+          const [arJson, frJson, transJson] = await Promise.all([arRes.json(), frRes.json(), transRes.json()]);
+
+          if (cancelled) return;
+
+          const combined: QuranVerse[] = [{
+            id: 1,
+            text_arabic: arJson.data?.text || '',
+            transliteration: transJson.data?.text || '',
+            translation_fr: frJson.data?.text || '',
+          }];
+
+          verseCache[sourateNumber] = combined;
+          setVerses(combined);
+          if (!cancelled) setLoading(false);
+          return;
+        }
+
         // Fetch Arabic (Uthmani), French (Hamidullah), and Transliteration in one call
         const res = await fetch(
           `${API_BASE}/${sourateNumber}/editions/quran-uthmani,fr.hamidullah,en.transliteration`
