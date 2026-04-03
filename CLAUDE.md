@@ -45,7 +45,7 @@ Dinislam est une application web d'éducation islamique (en français) construit
 
 ## Sourates — Spécificités
 
-- **Ayat Al-Kursi** (numéro spécial `1000`) est insérée entre Al-Ikhlas (112) et Al-Masad (111) dans `SOURATES_ORDERED`. L'API Quran charge le verset 255 de Al-Baqara via `useQuranVerses`. Affiche 📖 dans l'étoile.
+- **Ayat Al-Kursi** (numéro spécial `1000`) est insérée entre Al-Ikhlas (112) et Al-Masad (111) dans `SOURATES_ORDERED`. L'API Quran charge le verset 255 de Al-Baqara via `useQuranVerses`. Affiche "111b" dans l'étoile. Étoile dorée ambre (`hsl(38, 90%, 50%)`) avec halo animé pulsant (classe `.star-ayat-kursi`) pour la distinguer des autres.
 - **Icônes 🎁** sur les étoiles toutes les 5 sourates à partir d'Al-Fil (105) : `GIFT_SOURATE_NUMBERS` = {105, 100, 95, …, 5}. Validation d'une sourate 🎁 → feux d'artifice (`fireConfetti`) + toast de félicitation.
 - **Accessibilité séquentielle** : basée sur l'index dans `SOURATES_ORDERED` (pas number+1), pour gérer Ayat Al-Kursi.
 - **Contenu ciblé** : `sourate_content.target_user_id` (nullable) pour envoyer du contenu à un élève spécifique. `viewed_at` pour le suivi de lecture admin.
@@ -67,6 +67,18 @@ Toutes les validations (inscriptions, sourates, nourania, invocations) disposent
 - Admin voit le statut Vu/Non vu sous chaque contenu ciblé.
 - Marquage automatique `viewed_at` quand l'élève ouvre la sourate/leçon.
 
+## Parcours sourates — Layout
+
+- Étoiles de 72px (`STAR_SIZE`), largeur parcours 370px (`TOTAL_WIDTH`), espacement 130px (`ROW_HEIGHT`).
+- Numéros affichés dans **toutes** les étoiles (y compris verrouillées, en gris). Seules les validées affichent ✓.
+- Personnages 56px dans les virages du serpentin.
+
 ## Cartes admin-only
 
 Les cartes `students`, `messages`, `attendance`, `homework` dans `ADMIN_ONLY_CARDS` n'affichent jamais le toggle de visibilité élèves (pas d'icône œil).
+
+## Déploiement
+
+- **Lovable** est connecté au repo GitHub `badmust75-coder/dinislam-5e689abf` (branche `main`).
+- Le repo original `badmust75-coder/Dinislam` est aussi maintenu à jour (remote `origin`).
+- Pousser vers les deux remotes : `git push origin main && git push lovable main`.
